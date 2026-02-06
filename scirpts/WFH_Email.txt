@@ -1,0 +1,1396 @@
+// Outlook Email Automation with Send Functionality and Test Options
+// Paste this into console when on Outlook inbox page
+// Version with Working Subject Field Method
+
+(function() {
+    'use strict';
+    
+    console.log('📧 Outlook Email Automation with Send Function');
+    console.log('='.repeat(60));
+    
+    // Configuration - Set to true for auto-send, false for manual review
+    const CONFIG = {
+        AUTO_SEND: false, // Change to true to automatically send emails
+        DELAY_BEFORE_SEND: 3000, // 3 seconds delay before sending
+        ENABLE_SEND_BUTTON: true, // Add send button to control panel
+        TEST_MODE: false, // Set to true for test emails (uses test addresses)
+        SUBJECT_CONFIRMATION_DELAY: 500, // Delay for subject confirmation
+        TYPING_DELAY: 50 // Delay between keystrokes for realistic typing
+    };
+    
+    // Test email addresses for safe testing
+    const TEST_EMAILS = {
+        to: 'test.user@example.com',
+        cc: 'test1@example.com test2@example.com',
+        subject: 'TEST EMAIL - ' + new Date().toLocaleTimeString()
+    };
+    
+    // Get username from page
+    function getUsername() {
+        const selectors = [
+            '.U6Cnfo0RjXJ8UEwXhZV8mQ\\=\\= span',
+            '.mectrl_header_text.mectrl_truncate',
+            '[data-testid="user-avatar"] span',
+            '.O365CS-NavHeader span',
+            '[aria-label*="Account"] span'
+        ];
+        
+        for (const selector of selectors) {
+            try {
+                const element = document.querySelector(selector);
+                if (element && element.textContent.trim()) {
+                    return element.textContent.trim();
+                }
+            } catch (e) {}
+        }
+        
+        const allSpans = document.querySelectorAll('span');
+        for (const span of allSpans) {
+            const text = span.textContent.trim();
+            if (text && text.includes(' ') && text.length > 3 && text.length < 50) {
+                return text;
+            }
+        }
+        
+        return 'User';
+    }
+    
+    function getCurrentDate() {
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+    
+    const EMAIL_TEMPLATES = {
+        dayShift: {
+            name: 'Day Shift',
+            to: 'erica.hipolito@gistec.com',
+            cc: 'maristel.marcelo@gistec.com Dalia.Ali@gistec.com Zuhair.Jarrar@gistec.com Dania.Naser@gistec.com Nisrein.Alsheikh@gistec.com',
+            subject: '',
+            body: `Hello Erica,
+
+I hope this email finds you well.
+
+This is to inform you that I started my shift at 10:30 AM Jordan time.
+
+Have a great day ahead.`,
+            time: '10:30 AM'
+        },
+        nightShift: {
+            name: 'Night Shift',
+            to: 'erica.hipolito@gistec.com',
+            cc: 'maristel.marcelo@gistec.com Dalia.Ali@gistec.com Zuhair.Jarrar@gistec.com Dania.Naser@gistec.com Hatem.Qaisi@gistec.com',
+            subject: '',
+            body: `Hello Erica,
+
+I hope this email finds you well.
+
+This is to inform you that I started my shift at 01:30 PM Jordan time.
+
+Have a great day ahead.`,
+            time: '01:30 PM'
+        },
+        thirdShift: {
+            name: 'Third Shift',
+            to: 'erica.hipolito@gistec.com',
+            cc: 'maristel.marcelo@gistec.com Dalia.Ali@gistec.com Zuhair.Jarrar@gistec.com Dania.Naser@gistec.com Hatem.Qaisi@gistec.com',
+            subject: '',
+            body: `Hello Erica,
+
+I hope this email finds you well.
+
+This is to inform you that I started my shift at 04:00 PM Jordan time.
+
+Have a great day ahead.`,
+            time: '04:00 PM'
+        }
+    };
+    
+    function initializeTemplates() {
+        const username = getUsername();
+        const currentDate = getCurrentDate();
+        
+        Object.values(EMAIL_TEMPLATES).forEach(template => {
+            template.subject = `${username} WFH email ${currentDate}`;
+        });
+        
+        return { username, currentDate };
+    }
+    
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    function highlight(element, color = '#4CAF50', duration = 2000) {
+        if (!element) return;
+        const original = element.style.cssText;
+        element.style.cssText = original + `; border: 3px solid ${color} !important;`;
+        setTimeout(() => { element.style.cssText = original; }, duration);
+        return element;
+    }
+    
+    function findButtonByText(text) {
+        const buttons = document.querySelectorAll('button');
+        for (const button of buttons) {
+            if (button.textContent.trim() === text) {
+                return button;
+            }
+        }
+        return null;
+    }
+    
+    // ============================================
+    // NEW: REALISTIC TYPING SIMULATION FUNCTIONS
+    // ============================================
+    
+    // Simulate a realistic mouse click on an element
+    async function simulateRealClick(element) {
+        if (!element) return false;
+        
+        // First focus
+        element.focus();
+        await wait(100);
+        
+        // Create and dispatch mouse events
+        const mouseDownEvent = new MouseEvent('mousedown', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            buttons: 1
+        });
+        
+        const mouseUpEvent = new MouseEvent('mouseup', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            buttons: 1
+        });
+        
+        const clickEvent = new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            buttons: 1
+        });
+        
+        element.dispatchEvent(mouseDownEvent);
+        await wait(50);
+        element.dispatchEvent(mouseUpEvent);
+        await wait(50);
+        element.dispatchEvent(clickEvent);
+        await wait(100);
+        
+        // Also trigger focus events
+        element.dispatchEvent(new Event('focus', { bubbles: true }));
+        element.dispatchEvent(new Event('focusin', { bubbles: true }));
+        
+        return true;
+    }
+    
+    // Simulate realistic keyboard typing
+    async function simulateRealTyping(element, text) {
+        if (!element || !text) return false;
+        
+        console.log(`Typing: "${text}"`);
+        
+        // Clear existing content by simulating Ctrl+A then Delete
+        await simulateRealClick(element);
+        await wait(200);
+        
+        // Select all text
+        element.setSelectionRange(0, element.value.length);
+        
+        // Simulate Ctrl+A (select all)
+        const ctrlAEvent = new KeyboardEvent('keydown', {
+            key: 'a',
+            code: 'KeyA',
+            keyCode: 65,
+            which: 65,
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true
+        });
+        element.dispatchEvent(ctrlAEvent);
+        await wait(100);
+        
+        // Simulate Delete key
+        const deleteEvent = new KeyboardEvent('keydown', {
+            key: 'Delete',
+            code: 'Delete',
+            keyCode: 46,
+            which: 46,
+            bubbles: true,
+            cancelable: true
+        });
+        element.dispatchEvent(deleteEvent);
+        await wait(100);
+        
+        // Clear value
+        element.value = '';
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        await wait(200);
+        
+        // Type character by character with realistic events
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            
+            // Keydown event
+            const keyDownEvent = new KeyboardEvent('keydown', {
+                key: char,
+                code: char === ' ' ? 'Space' : `Key${char.toUpperCase()}`,
+                keyCode: char.charCodeAt(0),
+                which: char.charCodeAt(0),
+                bubbles: true,
+                cancelable: true
+            });
+            
+            // Keypress event
+            const keyPressEvent = new KeyboardEvent('keypress', {
+                key: char,
+                code: char === ' ' ? 'Space' : `Key${char.toUpperCase()}`,
+                keyCode: char.charCodeAt(0),
+                which: char.charCodeAt(0),
+                bubbles: true,
+                cancelable: true
+            });
+            
+            // Update value
+            element.value += char;
+            
+            // Input event
+            const inputEvent = new InputEvent('input', {
+                data: char,
+                inputType: 'insertText',
+                bubbles: true,
+                cancelable: true
+            });
+            
+            // Dispatch events
+            element.dispatchEvent(keyDownEvent);
+            await wait(10);
+            element.dispatchEvent(keyPressEvent);
+            await wait(10);
+            element.dispatchEvent(inputEvent);
+            await wait(10);
+            
+            // Also update the 'value' attribute for React
+            element.setAttribute('value', element.value);
+            
+            // Random small delay for realism
+            await wait(CONFIG.TYPING_DELAY + Math.random() * 30);
+        }
+        
+        // Final change event
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Blur and refocus to trigger validation
+        element.dispatchEvent(new Event('blur', { bubbles: true }));
+        await wait(100);
+        element.focus();
+        await wait(100);
+        
+        console.log(`Finished typing. Current value: "${element.value}"`);
+        return true;
+    }
+    
+    // ============================================
+    // UPDATED: WORKING SUBJECT FIELD SOLUTION
+    // ============================================
+    
+    async function fillSubjectField(subjectText) {
+        console.log(`📝 Setting subject: "${subjectText}"`);
+        
+        const subjectField = document.querySelector('input[aria-label="Subject"]');
+        if (!subjectField) {
+            console.error('❌ Subject field not found');
+            return false;
+        }
+        
+        try {
+            // Method 1: Use React's internal onChange handler (what worked in our tests)
+            const reactKeys = Object.keys(subjectField).filter(k => k.includes('react'));
+            
+            if (reactKeys.length > 0) {
+                console.log(`Found React keys: ${reactKeys.join(', ')}`);
+                
+                // Try to find React Props with onChange
+                for (const key of reactKeys) {
+                    try {
+                        const props = subjectField[key];
+                        if (props && typeof props === 'object' && props.onChange) {
+                            console.log('✅ Found React onChange handler');
+                            
+                            // Set the value on the field
+                            subjectField.value = subjectText;
+                            
+                            // Create React-compatible event
+                            const fakeEvent = {
+                                target: subjectField,
+                                currentTarget: subjectField,
+                                type: 'change',
+                                preventDefault: () => {},
+                                stopPropagation: () => {},
+                                nativeEvent: new Event('change')
+                            };
+                            
+                            // Call the React onChange handler
+                            props.onChange(fakeEvent);
+                            
+                            // Also dispatch DOM events for good measure
+                            subjectField.dispatchEvent(new Event('input', { bubbles: true }));
+                            subjectField.dispatchEvent(new Event('change', { bubbles: true }));
+                            
+                            await wait(300);
+                            
+                            // Verify it worked
+                            if (subjectField.value === subjectText) {
+                                console.log(`✅ Subject set successfully via React: "${subjectText}"`);
+                                return true;
+                            }
+                        }
+                    } catch (e) {
+                        // Continue to next key
+                        console.log(`No onChange in ${key}: ${e.message}`);
+                    }
+                }
+            }
+            
+            // Method 2: Fallback - comprehensive event dispatch
+            console.log('No React handler found, using fallback method...');
+            
+            // Clear first
+            subjectField.value = '';
+            subjectField.dispatchEvent(new Event('input', { bubbles: true }));
+            await wait(100);
+            
+            // Set value
+            subjectField.value = subjectText;
+            
+            // Trigger all possible events
+            const allEvents = [
+                'focus', 'focusin', 'focusout', 'blur',
+                'input', 'change', 'keydown', 'keypress', 'keyup',
+                'beforeinput'
+            ];
+            
+            for (const eventType of allEvents) {
+                try {
+                    subjectField.dispatchEvent(new Event(eventType, { bubbles: true }));
+                    await wait(10);
+                } catch (e) {
+                    // Ignore errors
+                }
+            }
+            
+            // Special InputEvent
+            if (typeof InputEvent !== 'undefined') {
+                subjectField.dispatchEvent(new InputEvent('input', {
+                    data: subjectText,
+                    inputType: 'insertText',
+                    bubbles: true
+                }));
+            }
+            
+            // Update attribute
+            subjectField.setAttribute('value', subjectText);
+            
+            await wait(300);
+            
+            if (subjectField.value === subjectText) {
+                console.log(`✅ Subject set successfully via fallback: "${subjectText}"`);
+                return true;
+            }
+            
+            console.log(`⚠️ Subject may not have been set correctly`);
+            return false;
+            
+        } catch (error) {
+            console.error('Error setting subject:', error);
+            return false;
+        }
+    }
+    
+    // ============================================
+    // UPDATED: SUBJECT CONFIRMATION FUNCTION (Simplified)
+    // ============================================
+    async function confirmSubjectField() {
+        console.log('🔍 Confirming subject field before send...');
+        
+        const subjectField = document.querySelector('input[aria-label="Subject"]');
+        if (!subjectField) {
+            console.error('❌ Subject field not found for confirmation');
+            return false;
+        }
+        
+        const originalSubject = subjectField.value;
+        if (!originalSubject || originalSubject.trim() === '') {
+            console.error('❌ Subject is empty');
+            return false;
+        }
+        
+        console.log(`Subject: "${originalSubject}"`);
+        
+        try {
+            // Simple confirmation: just trigger events
+            subjectField.dispatchEvent(new Event('blur', { bubbles: true }));
+            await wait(200);
+            subjectField.dispatchEvent(new Event('focus', { bubbles: true }));
+            await wait(200);
+            subjectField.dispatchEvent(new Event('change', { bubbles: true }));
+            await wait(200);
+            
+            console.log('✅ Subject confirmed');
+            return true;
+            
+        } catch (error) {
+            console.error('Error confirming subject:', error);
+            return false;
+        }
+    }
+    
+    // ============================================
+    // UPDATED: SEND EMAIL FUNCTION (Original method kept)
+    // ============================================
+    async function sendEmail() {
+        console.log('📤 Attempting to send email...');
+        
+        // Step 1: Confirm subject field
+        console.log('\n1. Confirming subject field...');
+        const subjectConfirmed = await confirmSubjectField();
+        if (!subjectConfirmed) {
+            console.error('❌ Subject confirmation failed. Cannot send email.');
+            return false;
+        }
+        
+        await wait(500);
+        
+        // Step 2: Find send button
+        console.log('\n2. Finding send button...');
+        const sendButtonSelectors = [
+            'button[aria-label="Send"]',
+            'button[aria-label*="Send" i]',
+            'button[data-tid="sendButton"]',
+            'button:has(span:contains("Send"))',
+            'button:has(i[data-icon-name="Send"])'
+        ];
+        
+        let sendButton = null;
+        for (const selector of sendButtonSelectors) {
+            sendButton = document.querySelector(selector);
+            if (sendButton) {
+                console.log(`✓ Found send button with selector: ${selector}`);
+                break;
+            }
+        }
+        
+        if (!sendButton) {
+            console.error('❌ Send button not found');
+            return false;
+        }
+        
+        // Step 3: Check if send button is disabled
+        console.log('\n3. Checking send button state...');
+        if (sendButton.disabled) {
+            console.log('⚠️ Send button is disabled, checking why...');
+            
+            await wait(1000);
+            
+            // Check for validation messages
+            const errorElements = document.querySelectorAll('[role="alert"], [data-tid*="error"], .error-message');
+            if (errorElements.length > 0) {
+                console.log('Validation errors found:');
+                errorElements.forEach(el => console.log('  -', el.textContent));
+            }
+            
+            // Try one more time
+            sendButton = document.querySelector('button[aria-label="Send"]');
+            if (!sendButton || sendButton.disabled) {
+                console.error('❌ Send button still disabled. Email not sent.');
+                
+                // Additional check: Verify subject is still there
+                const subjectField = document.querySelector('input[aria-label="Subject"]');
+                if (subjectField) {
+                    console.log(`Current subject value: "${subjectField.value}"`);
+                }
+                
+                return false;
+            }
+        }
+        
+        console.log('✅ Send button is clickable');
+        
+        // Step 4: Highlight and click send button
+        console.log('\n4. Sending email...');
+        highlight(sendButton, '#FF5722');
+        
+        // Simulate real click on send button
+        console.log('Clicking send button...');
+        await simulateRealClick(sendButton);
+        
+        // Step 5: Wait for send confirmation
+        console.log('\n5. Waiting for confirmation...');
+        await wait(2000);
+        
+        // Check if email was sent successfully
+        const composeWindow = document.querySelector('[aria-label="New Message"]');
+        if (!composeWindow) {
+            console.log('✅ Compose window closed - email likely sent successfully');
+            return true;
+        } else {
+            // Check for "Message sent" notification
+            const sentNotification = document.querySelector('[aria-label*="sent" i], [data-tid*="sent"]');
+            if (sentNotification) {
+                console.log('✅ Email sent notification found');
+                return true;
+            }
+            
+            console.log('⚠️ Compose window still open - email may not have sent');
+            
+            // Final check: Try clicking send one more time if window is still open
+            const retryButton = document.querySelector('button[aria-label="Send"]');
+            if (retryButton && !retryButton.disabled) {
+                console.log('Retrying send...');
+                await simulateRealClick(retryButton);
+                await wait(2000);
+                
+                const stillOpen = document.querySelector('[aria-label="New Message"]');
+                if (!stillOpen) {
+                    console.log('✅ Email sent on retry');
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+    }
+    
+    // ============================================
+    // UPDATED: Main function to fill AND send email (Original method kept for other fields)
+    // ============================================
+    async function fillEmailTemplate(template, autoSend = false, isTest = false) {
+        console.log(`🚀 Creating ${isTest ? 'TEST ' : ''}${template.name} email`);
+        
+        await wait(3000);
+        
+        try {
+            // Fill To field - use test emails if in test mode
+            console.log('\n1. Filling To field...');
+            const editorFields = document.querySelectorAll('div[class*="EditorClass"]');
+            const toField = editorFields[0];
+            
+            if (toField) {
+                const toEmails = isTest ? TEST_EMAILS.to : template.to;
+                await typeEmailsWithConfirmation(toField, toEmails, isTest ? 'Test To' : 'To');
+                highlight(toField, '#4CAF50');
+            }
+            
+            await wait(1500);
+            
+            // Setup CC field
+            console.log('\n2. Setting up CC field...');
+            const ccButton = findButtonByText('Cc');
+            let ccField = editorFields[1];
+            
+            if (!ccField && ccButton) {
+                console.log('CC field not visible, clicking CC button...');
+                ccButton.click();
+                await wait(2000);
+                const updatedFields = document.querySelectorAll('div[class*="EditorClass"]');
+                ccField = updatedFields[1] || updatedFields[0];
+            }
+            
+            if (ccField) {
+                const ccEmails = isTest ? TEST_EMAILS.cc : template.cc;
+                await typeEmailsWithConfirmation(ccField, ccEmails, isTest ? 'Test Cc' : 'Cc');
+                highlight(ccField, '#FF9800');
+            }
+            
+            await wait(1500);
+            
+            // Fill Subject field - USING WORKING METHOD
+            console.log('\n3. Filling Subject field...');
+            const subjectText = isTest ? TEST_EMAILS.subject : template.subject;
+            const subjectFilled = await fillSubjectField(subjectText);
+            
+            if (!subjectFilled) {
+                console.error('❌ Failed to fill subject field');
+                return { success: false, sent: false, error: 'Subject filling failed', isTest: isTest };
+            }
+            
+            await wait(1000);
+            
+            // Fill Body field
+            console.log('\n4. Filling Body field...');
+            const bodyText = isTest ? 
+                `THIS IS A TEST EMAIL - DO NOT REPLY
+
+${template.body}
+
+⚠️ This email was sent by automation script for testing purposes.` 
+                : template.body;
+            await fillBodyField(bodyText);
+            await wait(1000);
+            
+            console.log(`\n🎉 ${isTest ? 'TEST ' : ''}Email template applied successfully!`);
+            
+            // Double-check subject is still there
+            console.log('\n🔍 Double-checking subject...');
+            const subjectField = document.querySelector('input[aria-label="Subject"]');
+            if (subjectField) {
+                console.log(`Subject value: "${subjectField.value}"`);
+                if (!subjectField.value || subjectField.value.trim() === '') {
+                    console.log('⚠️ Subject appears empty, refilling...');
+                    await fillSubjectField(subjectText);
+                    await wait(500);
+                }
+            }
+            
+            // ============================================
+            // AUTO-SEND OR WAIT FOR USER
+            // ============================================
+            if (autoSend || CONFIG.AUTO_SEND) {
+                console.log(`\n⏳ Waiting ${CONFIG.DELAY_BEFORE_SEND/1000} seconds before sending...`);
+                await wait(CONFIG.DELAY_BEFORE_SEND);
+                
+                // Final subject confirmation before sending
+                console.log('\n🔍 Final subject confirmation...');
+                await confirmSubjectField();
+                await wait(500);
+                
+                const sendSuccess = await sendEmail();
+                if (sendSuccess) {
+                    console.log(`✅ ${isTest ? 'TEST ' : ''}Email sent successfully!`);
+                    return { success: true, sent: true, isTest: isTest };
+                } else {
+                    console.log(`⚠️ ${isTest ? 'TEST ' : ''}Email filled but not sent automatically`);
+                    return { success: true, sent: false, isTest: isTest };
+                }
+            } else {
+                console.log(`📋 ${isTest ? 'TEST ' : ''}Email ready for manual review and send.`);
+                console.log('   Click the Send button in Outlook when ready.');
+                return { success: true, sent: false, isTest: isTest };
+            }
+            
+        } catch (error) {
+            console.error('❌ Error:', error);
+            return { success: false, sent: false, error: error.message, isTest: isTest };
+        }
+    }
+    
+    // ============================================
+    // KEEP ORIGINAL: Type emails function with realistic typing
+    // ============================================
+    async function typeEmailsWithConfirmation(field, emails, fieldName) {
+        if (!field) return false;
+        
+        console.log(`📧 Filling ${fieldName} field...`);
+        
+        // Simulate real click on the field
+        await simulateRealClick(field);
+        await wait(1000);
+        
+        // Clear existing content
+        field.textContent = '';
+        field.innerHTML = '';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        await wait(500);
+        
+        const emailList = emails.split(' ');
+        
+        for (let i = 0; i < emailList.length; i++) {
+            const email = emailList[i].trim();
+            if (!email) continue;
+            
+            // Type each email character by character
+            for (let j = 0; j < email.length; j++) {
+                const char = email[j];
+                field.textContent += char;
+                
+                // Create realistic keyboard events
+                const keyDownEvent = new KeyboardEvent('keydown', {
+                    key: char,
+                    code: char === '@' ? 'Digit2' : char === '.' ? 'Period' : `Key${char.toUpperCase()}`,
+                    keyCode: char.charCodeAt(0),
+                    which: char.charCodeAt(0),
+                    bubbles: true,
+                    cancelable: true
+                });
+                
+                const inputEvent = new InputEvent('input', {
+                    data: char,
+                    inputType: 'insertText',
+                    bubbles: true
+                });
+                
+                field.dispatchEvent(keyDownEvent);
+                field.dispatchEvent(inputEvent);
+                await wait(80);
+            }
+            
+            await wait(1000);
+            
+            // Press Enter to add the email
+            field.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+            }));
+            
+            await wait(100);
+            field.dispatchEvent(new KeyboardEvent('keypress', {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+            }));
+            
+            await wait(100);
+            field.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+            }));
+            
+            field.dispatchEvent(new CompositionEvent('compositionend', { data: email, bubbles: true }));
+            await wait(2000);
+            
+            if (i < emailList.length - 1) {
+                field.textContent = '';
+                await wait(500);
+            }
+        }
+        
+        // Final events
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        field.dispatchEvent(new Event('blur', { bubbles: true }));
+        
+        // Click on body to trigger validation
+        const bodyField = document.querySelector('[aria-label="Message body"]');
+        if (bodyField) {
+            bodyField.click();
+        }
+        
+        await wait(500);
+        
+        console.log(`✅ ${fieldName} field filled successfully`);
+        return true;
+    }
+    
+    // ============================================
+    // Fill body field (Original method kept)
+    // ============================================
+    async function fillBodyField(bodyText) {
+        const bodyField = document.querySelector('[aria-label="Message body"][contenteditable="true"]');
+        if (!bodyField) return false;
+        
+        console.log('📝 Filling body field...');
+        
+        // Simulate real click
+        await simulateRealClick(bodyField);
+        await wait(500);
+        
+        // Clear existing content
+        bodyField.innerHTML = '';
+        bodyField.textContent = '';
+        
+        // Set content
+        bodyField.textContent = bodyText;
+        
+        // Format with line breaks
+        const lines = bodyText.split('\n');
+        bodyField.innerHTML = lines.map(line => {
+            if (line.trim() === '') return '<div><br></div>';
+            else return `<div style="margin: 0; padding: 0; margin-bottom: 12px;">${line}</div>`;
+        }).join('');
+        
+        // Trigger events
+        bodyField.dispatchEvent(new Event('input', { bubbles: true }));
+        bodyField.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Click to ensure focus
+        bodyField.click();
+        await wait(300);
+        
+        console.log('✅ Body field filled successfully');
+        return true;
+    }
+    
+    // ============================================
+    // DRAGGABLE PANEL FUNCTIONALITY (Original method kept)
+    // ============================================
+    function makePanelDraggable(panel) {
+        const header = panel.querySelector('div[style*="background: linear-gradient"]');
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        
+        header.style.cursor = 'move';
+        
+        header.addEventListener('mousedown', startDragging);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDragging);
+        
+        function startDragging(e) {
+            // Don't drag if clicking on buttons inside header
+            if (e.target.tagName === 'BUTTON') return;
+            
+            isDragging = true;
+            initialX = e.clientX - panel.offsetLeft;
+            initialY = e.clientY - panel.offsetTop;
+            panel.style.transition = 'none';
+        }
+        
+        function drag(e) {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+            
+            // Keep panel within viewport boundaries
+            const maxX = window.innerWidth - panel.offsetWidth;
+            const maxY = window.innerHeight - panel.offsetHeight;
+            
+            currentX = Math.max(0, Math.min(currentX, maxX));
+            currentY = Math.max(0, Math.min(currentY, maxY));
+            
+            panel.style.left = currentX + 'px';
+            panel.style.top = currentY + 'px';
+            panel.style.right = 'auto'; // Override right positioning
+        }
+        
+        function stopDragging() {
+            isDragging = false;
+            panel.style.transition = 'left 0.2s, top 0.2s';
+        }
+        
+        // Also make it draggable on touch devices
+        header.addEventListener('touchstart', function(e) {
+            if (e.target.tagName === 'BUTTON') return;
+            isDragging = true;
+            const touch = e.touches[0];
+            initialX = touch.clientX - panel.offsetLeft;
+            initialY = touch.clientY - panel.offsetTop;
+            panel.style.transition = 'none';
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            currentX = touch.clientX - initialX;
+            currentY = touch.clientY - initialY;
+            
+            const maxX = window.innerWidth - panel.offsetWidth;
+            const maxY = window.innerHeight - panel.offsetHeight;
+            
+            currentX = Math.max(0, Math.min(currentX, maxX));
+            currentY = Math.max(0, Math.min(currentY, maxY));
+            
+            panel.style.left = currentX + 'px';
+            panel.style.top = currentY + 'px';
+            panel.style.right = 'auto';
+        }, { passive: false });
+        
+        document.addEventListener('touchend', function() {
+            isDragging = false;
+            panel.style.transition = 'left 0.2s, top 0.2s';
+        });
+        
+        // Add drag handle indicator
+        const dragHandle = document.createElement('div');
+        dragHandle.innerHTML = '⋯⋯';
+        dragHandle.style.cssText = `
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            letter-spacing: 2px;
+            margin-right: 8px;
+            user-select: none;
+            cursor: move;
+        `;
+        header.insertBefore(dragHandle, header.firstChild);
+        
+        return panel;
+    }
+    
+    // ============================================
+    // MISSING FUNCTIONS ADDED HERE
+    // ============================================
+    
+    async function testAutoSend() {
+        console.log('🧪 Starting auto-send test...');
+        
+        try {
+            // Create a new email first
+            const newEmailBtn = document.querySelector('button[aria-label="New mail"]');
+            if (!newEmailBtn) {
+                console.error('❌ New email button not found');
+                return { success: false, error: 'New email button not found' };
+            }
+            
+            newEmailBtn.click();
+            await wait(2000);
+            
+            // Use day shift template for test
+            const template = EMAIL_TEMPLATES.dayShift;
+            const result = await fillEmailTemplate(template, true, true);
+            
+            return result;
+            
+        } catch (error) {
+            console.error('Test failed:', error);
+            return { success: false, error: error.message };
+        }
+    }
+    
+    async function createTestEmail() {
+        console.log('🧪 Creating test email...');
+        
+        try {
+            const newEmailBtn = document.querySelector('button[aria-label="New mail"]');
+            if (!newEmailBtn) {
+                console.error('❌ New email button not found');
+                return { success: false, error: 'New email button not found' };
+            }
+            
+            newEmailBtn.click();
+            await wait(2000);
+            
+            // Use day shift template for test
+            const template = EMAIL_TEMPLATES.dayShift;
+            const result = await fillEmailTemplate(template, false, true);
+            
+            return result;
+            
+        } catch (error) {
+            console.error('Test email creation failed:', error);
+            return { success: false, error: error.message };
+        }
+    }
+    
+    // ============================================
+    // Control Panel with Draggable Feature (Original method kept)
+    // ============================================
+    function createControlPanel() {
+        const existingPanel = document.getElementById('outlookControlPanel');
+        if (existingPanel) existingPanel.remove();
+        
+        const { username, currentDate } = initializeTemplates();
+        
+        const panel = document.createElement('div');
+        panel.id = 'outlookControlPanel';
+        panel.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 320px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 999999;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            border: 1px solid #d1d1d1;
+            font-size: 13px;
+            max-height: 450px;
+            display: flex;
+            flex-direction: column;
+            transition: left 0.2s, top 0.2s;
+            user-select: none;
+            resize: both;
+            overflow: hidden;
+            min-width: 300px;
+            min-height: 200px;
+            max-width: 500px;
+            max-height: 600px;
+        `;
+        
+        panel.innerHTML = `
+            <div style="background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%); color: white; padding: 8px 12px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: move;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="color: rgba(255,255,255,0.7); font-size: 12px; letter-spacing: 2px; user-select: none; cursor: move;">⋯⋯</div>
+                    <span>📧 Quick Email (Working Subject Fix)</span>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="minimizePanel" style="background: none; border: none; color: white; cursor: pointer; font-size: 16px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 3px; transition: background 0.2s;" 
+                            onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='none'">−</button>
+                    <button id="closePanel" style="background: none; border: none; color: white; cursor: pointer; font-size: 16px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 3px; transition: background 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='none'">×</button>
+                </div>
+            </div>
+            <div style="padding: 8px 12px; background: #f3f6f8; border-bottom: 1px solid #e1e1e1;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 24px; height: 24px; background: #0078d4; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold;">${username.charAt(0)}</div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; font-size: 12px;">${username}</div>
+                        <div style="font-size: 11px; color: #666;">${currentDate}</div>
+                    </div>
+                </div>
+                <div style="margin-top: 8px; padding: 6px; background: ${CONFIG.AUTO_SEND ? '#d4edda' : '#fff3cd'}; border-radius: 4px; border: 1px solid ${CONFIG.AUTO_SEND ? '#c3e6cb' : '#ffeeba'};">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;">
+                        <span style="font-weight: 600; color: ${CONFIG.AUTO_SEND ? '#155724' : '#856404'};">${CONFIG.AUTO_SEND ? '⚡ AUTO-SEND ON' : '👁️ MANUAL REVIEW'}</span>
+                        <button id="toggleAutoSend" style="margin-left: auto; padding: 2px 8px; background: ${CONFIG.AUTO_SEND ? '#28a745' : '#6c757d'}; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; transition: all 0.2s;"
+                                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                            ${CONFIG.AUTO_SEND ? 'ON' : 'OFF'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 12px; overflow-y: auto; flex: 1; max-height: 250px;">
+                <div style="margin-bottom: 8px; color: #333; font-weight: 600; font-size: 12px;">WFH Templates:</div>
+                <div id="templateButtons" style="display: flex; flex-direction: column; gap: 6px;">
+                    ${Object.entries(EMAIL_TEMPLATES).map(([key, template]) => `
+                        <button class="template-btn" data-template="${key}" 
+                                style="text-align: left; padding: 8px 10px; border: 1px solid #d1d1d1; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s; font-size: 12px;"
+                                onmouseover="this.style.borderColor='#0078d4'; this.style.boxShadow='0 1px 3px rgba(0,120,212,0.2)'" 
+                                onmouseout="this.style.borderColor='#d1d1d1'; this.style.boxShadow='none'">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600; color: #0078d4;">${template.name}</span>
+                                <span style="font-size: 11px; background: #e3f2fd; color: #0078d4; padding: 2px 6px; border-radius: 10px;">${template.time}</span>
+                            </div>
+                            <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                                To: ${template.to.split('@')[0]}@...
+                            </div>
+                            ${CONFIG.AUTO_SEND ? '<div style="font-size: 10px; color: #28a745; margin-top: 2px;">⚡ Will auto-send</div>' : ''}
+                        </button>
+                    `).join('')}
+                </div>
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e1e1e1;">
+                    <div style="font-weight: 600; margin-bottom: 6px; color: #333; font-size: 12px;">🧪 Test Functions:</div>
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                        <button id="testAutoSendBtn" style="flex: 1; padding: 8px; background: #9C27B0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s;"
+                                onmouseover="this.style.opacity='0.8'; this.style.transform='translateY(-1px)'" onmouseout="this.style.opacity='1'; this.style.transform='none'">
+                            <span>🔧</span> Test Auto-Send
+                        </button>
+                        <button id="createTestEmailBtn" style="flex: 1; padding: 8px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s;"
+                                onmouseover="this.style.opacity='0.8'; this.style.transform='translateY(-1px)'" onmouseout="this.style.opacity='1'; this.style.transform='none'">
+                            <span>✉️</span> Test Email
+                        </button>
+                    </div>
+                    ${CONFIG.ENABLE_SEND_BUTTON ? `
+                    <button id="manualSendBtn" style="width: 100%; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; transition: all 0.2s;"
+                            onmouseover="this.style.opacity='0.8'; this.style.transform='translateY(-1px)'" onmouseout="this.style.opacity='1'; this.style.transform='none'">
+                        <span>📤</span> Send Current Email
+                    </button>
+                    <div style="font-size: 10px; color: #666; text-align: center; margin-top: 4px;">
+                        Only works if email compose window is open
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div id="statusSection" style="padding: 8px 12px; background: #f8f9fa; border-top: 1px solid #e1e1e1; font-size: 11px; display: none;"></div>
+            
+            <!-- Resize handle -->
+            <div style="position: absolute; bottom: 0; right: 0; width: 15px; height: 15px; cursor: se-resize; background: linear-gradient(135deg, transparent 50%, #0078d4 50%); border-bottom-right-radius: 8px;"></div>
+        `;
+        
+        document.body.appendChild(panel);
+        
+        // Make panel draggable
+        makePanelDraggable(panel);
+        
+        // ============================================
+        // EVENT LISTENERS FOR PANEL BUTTONS (Original method kept)
+        // ============================================
+        
+        // Close panel button
+        panel.querySelector('#closePanel').addEventListener('click', () => {
+            console.log('Closing control panel');
+            panel.remove();
+        });
+        
+        // Minimize panel button
+        let isMinimized = false;
+        const contentSection = panel.querySelector('div:nth-child(2)');
+        const templatesSection = panel.querySelector('div:nth-child(3)');
+        
+        panel.querySelector('#minimizePanel').addEventListener('click', function() {
+            if (!isMinimized) {
+                // Minimize
+                contentSection.style.display = 'none';
+                templatesSection.style.display = 'none';
+                panel.style.height = '40px';
+                panel.style.width = '200px';
+                this.textContent = '+';
+                this.title = 'Maximize';
+                console.log('Panel minimized');
+            } else {
+                // Restore
+                contentSection.style.display = 'block';
+                templatesSection.style.display = 'block';
+                panel.style.height = '';
+                panel.style.width = '320px';
+                this.textContent = '−';
+                this.title = 'Minimize';
+                console.log('Panel restored');
+            }
+            isMinimized = !isMinimized;
+        });
+        
+        // Toggle auto-send button
+        panel.querySelector('#toggleAutoSend').addEventListener('click', function() {
+            CONFIG.AUTO_SEND = !CONFIG.AUTO_SEND;
+            this.textContent = CONFIG.AUTO_SEND ? 'ON' : 'OFF';
+            this.style.background = CONFIG.AUTO_SEND ? '#28a745' : '#6c757d';
+            
+            // Update header indicator
+            const headerIndicator = panel.querySelector('div:nth-child(2) > div:nth-child(2)');
+            if (headerIndicator) {
+                headerIndicator.style.background = CONFIG.AUTO_SEND ? '#d4edda' : '#fff3cd';
+                headerIndicator.style.borderColor = CONFIG.AUTO_SEND ? '#c3e6cb' : '#ffeeba';
+                const textSpan = headerIndicator.querySelector('span');
+                if (textSpan) {
+                    textSpan.textContent = CONFIG.AUTO_SEND ? '⚡ AUTO-SEND ON' : '👁️ MANUAL REVIEW';
+                    textSpan.style.color = CONFIG.AUTO_SEND ? '#155724' : '#856404';
+                }
+            }
+            
+            const statusDiv = panel.querySelector('#statusSection');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = `
+                <div style="color: ${CONFIG.AUTO_SEND ? '#28a745' : '#6c757d'}; font-weight: 600;">
+                    ${CONFIG.AUTO_SEND ? '⚡ AUTO-SEND ENABLED' : '👁️ MANUAL REVIEW MODE'}
+                </div>
+                <div style="color: #666; font-size: 10px;">
+                    ${CONFIG.AUTO_SEND ? 'Emails will be sent automatically after filling' : 'You will need to click Send manually'}
+                </div>
+            `;
+            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+            
+            // Update template buttons
+            const templateBtns = panel.querySelectorAll('.template-btn');
+            templateBtns.forEach(btn => {
+                const templateKey = btn.getAttribute('data-template');
+                const template = EMAIL_TEMPLATES[templateKey];
+                const lastDiv = btn.querySelector('div:last-child');
+                if (lastDiv && lastDiv.textContent.includes('Will auto-send')) {
+                    lastDiv.remove();
+                }
+                if (CONFIG.AUTO_SEND) {
+                    const autoSendDiv = document.createElement('div');
+                    autoSendDiv.style.cssText = 'font-size: 10px; color: #28a745; margin-top: 2px;';
+                    autoSendDiv.textContent = '⚡ Will auto-send';
+                    btn.appendChild(autoSendDiv);
+                }
+            });
+            
+            console.log(`Auto-send ${CONFIG.AUTO_SEND ? 'enabled' : 'disabled'}`);
+        });
+        
+        // Test Auto-Send Button
+        panel.querySelector('#testAutoSendBtn').addEventListener('click', async function() {
+            console.log('Testing auto-send functionality...');
+            const statusSection = panel.querySelector('#statusSection');
+            statusSection.style.display = 'block';
+            statusSection.innerHTML = `
+                <div style="color: #9C27B0; font-weight: 600;">🧪 Testing Auto-Send...</div>
+                <div style="color: #666; font-size: 10px;">Running comprehensive test (check console)</div>
+            `;
+            
+            const result = await testAutoSend();
+            
+            if (result.success) {
+                statusSection.innerHTML = `
+                    <div style="color: #28a745; font-weight: 600;">✅ Auto-Send Test Passed!</div>
+                    <div style="color: #666; font-size: 10px;">Auto-send functionality is working</div>
+                `;
+            } else {
+                statusSection.innerHTML = `
+                    <div style="color: #dc3545; font-weight: 600;">❌ Auto-Send Test Failed</div>
+                    <div style="color: #666; font-size: 10px;">Check console for details</div>
+                `;
+            }
+            setTimeout(() => { statusSection.style.display = 'none'; }, 5000);
+        });
+        
+        // Create Test Email Button
+        panel.querySelector('#createTestEmailBtn').addEventListener('click', async function() {
+            console.log('Creating test email...');
+            const statusSection = panel.querySelector('#statusSection');
+            statusSection.style.display = 'block';
+            statusSection.innerHTML = `
+                <div style="color: #FF9800; font-weight: 600;">✉️ Creating Test Email...</div>
+                <div style="color: #666; font-size: 10px;">Using test addresses (safe for testing)</div>
+            `;
+            
+            await createTestEmail();
+            
+            setTimeout(() => {
+                statusSection.innerHTML = `
+                    <div style="color: #28a745; font-weight: 600;">✅ Test Email Created</div>
+                    <div style="color: #666; font-size: 10px;">${CONFIG.AUTO_SEND ? 'Email may have been sent' : 'Email ready for review'}</div>
+                `;
+                setTimeout(() => { statusSection.style.display = 'none'; }, 3000);
+            }, 2000);
+        });
+        
+        // Manual Send Button
+        if (CONFIG.ENABLE_SEND_BUTTON) {
+            panel.querySelector('#manualSendBtn').addEventListener('click', async function() {
+                console.log('Attempting to send current email...');
+                const statusSection = panel.querySelector('#statusSection');
+                statusSection.style.display = 'block';
+                statusSection.innerHTML = `
+                    <div style="color: #dc3545; font-weight: 600;">📤 Sending Email...</div>
+                    <div style="color: #666; font-size: 10px;">Attempting to send current email</div>
+                `;
+                
+                const sendSuccess = await sendEmail();
+                if (sendSuccess) {
+                    statusSection.innerHTML = `
+                        <div style="color: #28a745; font-weight: 600;">✅ Email Sent!</div>
+                        <div style="color: #666; font-size: 10px;">Email was sent successfully</div>
+                    `;
+                } else {
+                    statusSection.innerHTML = `
+                        <div style="color: #dc3545; font-weight: 600;">❌ Send Failed</div>
+                        <div style="color: #666; font-size: 10px;">Check console for details</div>
+                    `;
+                }
+                setTimeout(() => { statusSection.style.display = 'none'; }, 3000);
+            });
+        }
+        
+        // Template buttons
+        panel.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const templateKey = this.getAttribute('data-template');
+                const template = EMAIL_TEMPLATES[templateKey];
+                
+                console.log(`Creating ${template.name} email...`);
+                const statusSection = panel.querySelector('#statusSection');
+                statusSection.style.display = 'block';
+                statusSection.innerHTML = `
+                    <div style="color: #0078d4; font-weight: 600;">⏳ Creating ${template.name}</div>
+                    <div style="color: #666;">Mode: ${CONFIG.AUTO_SEND ? 'Auto-send' : 'Manual review'}</div>
+                `;
+                
+                const newEmailBtn = document.querySelector('button[aria-label="New mail"]');
+                if (newEmailBtn) {
+                    newEmailBtn.click();
+                    
+                    setTimeout(async () => {
+                        const result = await fillEmailTemplate(template, CONFIG.AUTO_SEND, false);
+                        
+                        if (result.success) {
+                            if (result.sent) {
+                                statusSection.innerHTML = `
+                                    <div style="color: #28a745; font-weight: 600;">✅ Email Sent!</div>
+                                    <div style="color: #666; font-size: 10px;">${template.name} email was sent automatically</div>
+                                `;
+                            } else {
+                                statusSection.innerHTML = `
+                                    <div style="color: #28a745; font-weight: 600;">✅ Email Ready!</div>
+                                    <div style="color: #666; font-size: 10px;">${CONFIG.AUTO_SEND ? 'Check if send was successful' : 'Click Send button in Outlook'}</div>
+                                `;
+                            }
+                        } else {
+                            statusSection.innerHTML = `
+                                <div style="color: #dc3545; font-weight: 600;">❌ Error</div>
+                                <div style="color: #666; font-size: 10px;">Check console for details</div>
+                            `;
+                        }
+                        setTimeout(() => { statusSection.style.display = 'none'; }, 5000);
+                    }, 1500);
+                } else {
+                    statusSection.innerHTML = `
+                        <div style="color: #dc3545; font-weight: 600;">❌ Error</div>
+                        <div style="color: #666; font-size: 10px;">New Email button not found. Are you on the Outlook inbox page?</div>
+                    `;
+                    setTimeout(() => { statusSection.style.display = 'none'; }, 3000);
+                }
+            });
+        });
+        
+        // Add resize functionality
+        let isResizing = false;
+        const resizeHandle = panel.querySelector('div[style*="se-resize"]');
+        
+        if (resizeHandle) {
+            resizeHandle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                isResizing = true;
+                document.addEventListener('mousemove', resize);
+                document.addEventListener('mouseup', stopResize);
+            });
+            
+            function resize(e) {
+                if (!isResizing) return;
+                
+                const newWidth = e.clientX - panel.offsetLeft;
+                const newHeight = e.clientY - panel.offsetTop;
+                
+                if (newWidth >= 300 && newWidth <= 500) {
+                    panel.style.width = newWidth + 'px';
+                }
+                if (newHeight >= 200 && newHeight <= 600) {
+                    panel.style.height = newHeight + 'px';
+                }
+            }
+            
+            function stopResize() {
+                isResizing = false;
+                document.removeEventListener('mousemove', resize);
+                document.removeEventListener('mouseup', stopResize);
+            }
+        }
+        
+        return panel;
+    }
+    
+    // Initialize
+    function initialize() {
+        console.log('🔧 Initializing with WORKING Subject Method...');
+        const { username } = initializeTemplates();
+        
+        console.log('\n⚙️  Configuration:');
+        console.log(`  Auto-send: ${CONFIG.AUTO_SEND ? 'ENABLED ⚡' : 'DISABLED 👁️'}`);
+        console.log(`  Send delay: ${CONFIG.DELAY_BEFORE_SEND}ms`);
+        console.log(`  Typing delay: ${CONFIG.TYPING_DELAY}ms`);
+        console.log(`  User: ${username}`);
+        
+        console.log('\n🎯 SUBJECT FIELD METHOD (Working):');
+        console.log('  • Uses React internal onChange handler (confirmed working)');
+        console.log('  • Falls back to comprehensive event dispatch');
+        console.log('  • All other fields use original realistic typing methods');
+        
+        console.log('\n🎛️  Panel Features:');
+        console.log('  • Draggable (click and drag header)');
+        console.log('  • Resizable (drag bottom-right corner)');
+        console.log('  • Minimizable (click - button)');
+        console.log('  • Auto-send toggle');
+        console.log('  • Test functions');
+        
+        console.log('\n🧪 Test Commands:');
+        console.log('  • Click "Test Auto-Send" button in panel');
+        console.log('  • Click "Test Email" button for safe testing');
+        console.log('  • window.emailAuto.testAutoSend() - Run auto-send test');
+        console.log('  • window.emailAuto.createTestEmail() - Create test email');
+        
+        createControlPanel();
+        
+        // Global access
+        window.emailAuto = {
+            createPanel: createControlPanel,
+            fillTemplate: async function(name, autoSend = CONFIG.AUTO_SEND) {
+                const template = EMAIL_TEMPLATES[name];
+                if (template) return await fillEmailTemplate(template, autoSend, false);
+                return false;
+            },
+            sendCurrentEmail: sendEmail,
+            confirmSubject: confirmSubjectField,
+            fillSubject: fillSubjectField,
+            simulateRealTyping: simulateRealTyping,
+            simulateRealClick: simulateRealClick,
+            testAutoSend: testAutoSend,
+            createTestEmail: createTestEmail,
+            config: CONFIG,
+            templates: EMAIL_TEMPLATES,
+            testEmails: TEST_EMAILS
+        };
+        
+        console.log('\n🎉 Ready! Working subject field method implemented.');
+        console.log('   All other fields use original realistic typing methods.');
+    }
+    
+    setTimeout(initialize, 1000);
+})();
