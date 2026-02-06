@@ -1,0 +1,53 @@
+(() => {
+  'use strict';
+
+  const PERIOD_MIN = 60;                 // <— change if you want
+  const PERIOD_MS = PERIOD_MIN * 60 * 1000;
+
+  /* ---------- create button ---------- */
+  const btn = document.createElement('button');
+  btn.id = 'tm-refresh-btn';
+  btn.title = 'Next auto-refresh in …';
+  Object.assign(btn.style, {
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    zIndex: 99999,
+    padding: '6px 10px',
+    fontSize: '16px',
+    background: '#007bff',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    boxShadow: '0 2px 6px rgba(0,0,0,.3)',
+    minWidth: '70px'
+  });
+
+  /* ---------- timer logic ---------- */
+  let target = Date.now() + PERIOD_MS;
+  let tickId;
+
+  const pad = n => String(n).padStart(2, '0');
+  function updateDisplay() {
+    const left = Math.max(0, target - Date.now());
+    const m = Math.floor(left / 60000);
+    const s = Math.floor((left % 60000) / 1000);
+    btn.textContent = `⟳ ${pad(m)}:${pad(s)}`;
+    if (left <= 0) location.reload(true);
+  }
+
+  function start() {
+    updateDisplay();
+    tickId = setInterval(updateDisplay, 1000);
+  }
+
+  /* ---------- manual refresh ---------- */
+  btn.addEventListener('click', () => location.reload(true));
+
+  /* ---------- inject & start ---------- */
+  if (!document.getElementById('tm-refresh-btn')) {
+    document.body.appendChild(btn);
+    start();
+  }
+})();
