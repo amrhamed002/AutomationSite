@@ -1,112 +1,120 @@
-// Script Management System
+// Script Management System with Category Protection
 class AutomationHub {
     constructor() {
         this.scripts = JSON.parse(localStorage.getItem('scripts')) || this.getDefaultScripts();
         this.currentScript = null;
+        
+        // Category protection keys
+        this.categoryKeys = {
+            'scheduler': 'SCHED2024!',
+            'utility': 'UTIL2024!',
+            'email': 'EMAIL2024!'
+        };
+        
+        // Track unlocked categories in session
+        this.unlockedCategories = new Set();
+        
         this.init();
     }
 
     getDefaultScripts() {
-        return [
+        return [];
+    }
+
+    async loadDefaultScripts() {
+        const defaultsLoaded = localStorage.getItem('defaultsLoaded');
+        if (defaultsLoaded) return;
+
+        const defaultConfigs = [
             {
                 id: 'dayshift',
+                file: 'Dayshift.txt',
                 name: 'Day Shift Scheduler',
                 category: 'scheduler',
-                description: 'Automated presence status scheduler for day shift operations (10:30 AM - 4:00 PM)',
-                filename: 'Dayshift.txt',
-                content: `/* Day Shift Automation */
-const jobs = [
-  { time: '11:00:00', statusText: 'Training' },
-  { time: '12:00:00', statusText: 'Available' },
-  { time: '16:00:00', selector: '#command-bar-queue-toggle', useShadow: true }
-];`,
-                size: '4.2 KB',
-                updated: new Date().toISOString(),
-                version: '1.0'
+                description: 'Automated presence status scheduler for day shift operations (10:30 AM - 4:00 PM)'
             },
             {
                 id: 'nightshift',
+                file: 'NightShift7.txt',
                 name: 'Night Shift Scheduler',
                 category: 'scheduler',
-                description: 'Evening shift automation with multiple queue toggles and break scheduling',
-                filename: 'NightShift7.txt',
-                content: `/* Night Shift Automation */
-const jobs = [
-  { time: '13:30:00', statusText: 'Training' },
-  { time: '14:30:00', statusText: 'Available' },
-  { time: '17:02:00', selector: '#command-bar-queue-toggle', useShadow: true },
-  { time: '19:00:00', statusText: 'Break' }
-];`,
-                size: '5.8 KB',
-                updated: new Date().toISOString(),
-                version: '1.0'
+                description: 'Evening shift automation with multiple queue toggles and break scheduling'
             },
             {
                 id: 'thirdshift',
+                file: 'ThirdShift.txt',
                 name: 'Third Shift Scheduler',
                 category: 'scheduler',
-                description: 'Late night shift covering 4:00 PM - 1:00 AM with extended coverage',
-                filename: 'ThirdShift.txt',
-                content: `/* Third Shift Automation */
-const jobs = [
-  { time: '16:00:00', statusText: 'Training' },
-  { time: '17:00:00', statusText: 'Available' },
-  { time: '19:02:00', selector: '#command-bar-queue-toggle', useShadow: true }
-];`,
-                size: '6.1 KB',
-                updated: new Date().toISOString(),
-                version: '1.0'
+                description: 'Late night shift covering 4:00 PM - 1:00 AM with extended coverage'
             },
             {
                 id: 'wfh-email',
+                file: 'WFH_Email.txt',
                 name: 'WFH Email Automation',
                 category: 'email',
-                description: 'Outlook email automation with send functionality for work-from-home notifications',
-                filename: 'WFH_Email.txt',
-                content: `// Outlook Email Automation
-(function() {
-    const EMAIL_TEMPLATES = {
-        dayShift: { to: 'manager@company.com', subject: 'WFH - Day Shift' },
-        nightShift: { to: 'manager@company.com', subject: 'WFH - Night Shift' }
-    };
-    // Automation logic...
-})();`,
-                size: '12.4 KB',
-                updated: new Date().toISOString(),
-                version: '1.0'
+                description: 'Outlook email automation with send functionality for work-from-home notifications'
             },
             {
                 id: 'autorefresh',
+                file: 'AutoRefresh.txt',
                 name: 'Auto Page Refresh',
                 category: 'utility',
-                description: 'Automatic page refresh utility with countdown timer and manual trigger',
-                filename: 'AutoRefresh.txt',
-                content: `(() => {
-  const PERIOD_MIN = 60;
-  const PERIOD_MS = PERIOD_MIN * 60 * 1000;
-  // Refresh logic...
-})();`,
-                size: '1.2 KB',
-                updated: new Date().toISOString(),
-                version: '1.0'
+                description: 'Automatic page refresh utility with countdown timer and manual trigger'
             }
         ];
+
+        for (const config of defaultConfigs) {
+            try {
+                const response = await fetch(config.file);
+                if (response.ok) {
+                    const content = await response.text();
+                    const exists = this.scripts.find(s => s.id === config.id);
+                    if (!exists) {
+                        this.scripts.push({
+                            id: config.id,
+                            name: config.name,
+                            category: config.category,
+                            description: config.description,
+                            filename: config.file,
+                            content: content,
+                            size: (content.length / 1024).toFixed(1) + ' KB',
+                            updated: new Date().toISOString(),
+                            version: '1.0'
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load:', config.file);
+            }
+        }
+
+        localStorage.setItem('defaultsLoaded', 'true');
+        this.saveScripts();
     }
 
-    init() {
+    async init() {
+        await this.loadDefaultScripts();
         this.renderScripts();
         this.updateStats();
         this.setupEventListeners();
         this.setupDragAndDrop();
+        this.updateFilterButtons();
     }
 
     setupEventListeners() {
         // Filter buttons
         document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
+                const filter = e.target.dataset.filter;
+                
+                if (filter !== 'all' && !this.isCategoryUnlocked(filter)) {
+                    const unlocked = await this.promptForCategoryKey(filter);
+                    if (!unlocked) return;
+                }
+                
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
-                this.renderScripts(e.target.dataset.filter);
+                this.renderScripts(filter);
             });
         });
 
@@ -167,6 +175,50 @@ const jobs = [
         });
     }
 
+    async promptForCategoryKey(category) {
+        const categoryNames = {
+            'scheduler': 'Scheduler',
+            'utility': 'Utility',
+            'email': 'Email'
+        };
+        
+        const key = prompt(
+            `🔒 ${categoryNames[category]} Scripts are protected.\n\n` +
+            `Please enter the access key for ${categoryNames[category]} category:`
+        );
+        
+        if (key === null) return false;
+        
+        if (key === this.categoryKeys[category]) {
+            this.unlockedCategories.add(category);
+            this.showToast(`${categoryNames[category]} category unlocked!`, 'success');
+            this.updateFilterButtons();
+            this.renderScripts(document.querySelector('.filter-btn.active').dataset.filter);
+            return true;
+        } else {
+            this.showToast('Incorrect key! Access denied.', 'error');
+            return false;
+        }
+    }
+
+    isCategoryUnlocked(category) {
+        if (category === 'all') return true;
+        return this.unlockedCategories.has(category);
+    }
+
+    updateFilterButtons() {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            const filter = btn.dataset.filter;
+            const baseText = filter.charAt(0).toUpperCase() + filter.slice(1);
+            
+            if (filter !== 'all' && !this.isCategoryUnlocked(filter)) {
+                btn.innerHTML = `<i class="fas fa-lock" style="margin-right: 5px;"></i> ${baseText}`;
+            } else {
+                btn.textContent = baseText;
+            }
+        });
+    }
+
     handleFileSelect(file) {
         if (!file) return;
 
@@ -178,7 +230,6 @@ const jobs = [
                 size: (file.size / 1024).toFixed(1) + ' KB'
             };
 
-            // Show form
             document.querySelector('.upload-content').style.display = 'none';
             document.getElementById('uploadForm').style.display = 'block';
             document.getElementById('scriptName').value = this.pendingFile.name;
@@ -196,7 +247,6 @@ const jobs = [
             return;
         }
 
-        // Check if replacing existing
         const existingIndex = this.scripts.findIndex(s => 
             s.name.toLowerCase() === name.toLowerCase()
         );
@@ -226,7 +276,6 @@ const jobs = [
         this.renderScripts();
         this.updateStats();
 
-        // Reset form
         document.getElementById('uploadForm').style.display = 'none';
         document.querySelector('.upload-content').style.display = 'block';
         document.getElementById('scriptName').value = '';
@@ -240,28 +289,36 @@ const jobs = [
             this.scripts : 
             this.scripts.filter(s => s.category === filter);
 
-        grid.innerHTML = filtered.map(script => `
-            <div class="script-card" onclick="hub.openScript('${script.id}')">
-                <div class="script-header">
-                    <div class="script-icon">
-                        <i class="fas ${this.getIcon(script.category)}"></i>
+        grid.innerHTML = filtered.map(script => {
+            const isLocked = !this.isCategoryUnlocked(script.category);
+            const lockIcon = isLocked ? '<i class="fas fa-lock" style="color: #ef4444; margin-left: 8px;"></i>' : '';
+            
+            return `
+                <div class="script-card" onclick="hub.openScript('${script.id}')">
+                    <div class="script-header">
+                        <div class="script-icon">
+                            <i class="fas ${this.getIcon(script.category)}"></i>
+                        </div>
+                        <span class="script-badge ${script.category}">${script.category}</span>
                     </div>
-                    <span class="script-badge ${script.category}">${script.category}</span>
+                    <h3 class="script-title">
+                        ${script.name}
+                        ${lockIcon}
+                    </h3>
+                    <p class="script-description">${script.description}</p>
+                    <div class="script-meta">
+                        <span><i class="fas fa-file"></i> ${script.size}</span>
+                        <span><i class="fas fa-code-branch"></i> v${script.version}</span>
+                        <span><i class="fas fa-clock"></i> ${this.timeAgo(script.updated)}</span>
+                    </div>
+                    <div class="script-actions">
+                        <button class="btn-secondary" onclick="event.stopPropagation(); hub.downloadScript('${script.id}')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
                 </div>
-                <h3 class="script-title">${script.name}</h3>
-                <p class="script-description">${script.description}</p>
-                <div class="script-meta">
-                    <span><i class="fas fa-file"></i> ${script.size}</span>
-                    <span><i class="fas fa-code-branch"></i> v${script.version}</span>
-                    <span><i class="fas fa-clock"></i> ${this.timeAgo(script.updated)}</span>
-                </div>
-                <div class="script-actions">
-                    <button class="btn-secondary" onclick="event.stopPropagation(); hub.downloadScript('${script.id}')">
-                        <i class="fas fa-download"></i> Download
-                    </button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     getIcon(category) {
@@ -293,10 +350,15 @@ const jobs = [
         return 'Just now';
     }
 
-    openScript(id) {
+    async openScript(id) {
         this.currentScript = this.scripts.find(s => s.id === id);
         if (!this.currentScript) return;
-
+        
+        if (!this.isCategoryUnlocked(this.currentScript.category)) {
+            const unlocked = await this.promptForCategoryKey(this.currentScript.category);
+            if (!unlocked) return;
+        }
+        
         document.getElementById('modalTitle').textContent = this.currentScript.name;
         document.getElementById('codeContent').innerHTML = this.syntaxHighlight(this.currentScript.content);
         document.getElementById('scriptModal').classList.add('active');
@@ -374,7 +436,7 @@ const jobs = [
         document.getElementById('activeSchedules').textContent = 
             this.scripts.filter(s => s.category === 'scheduler').length;
         document.getElementById('totalRuns').textContent = 
-            Math.floor(Math.random() * 1000) + 500; // Simulated metric
+            Math.floor(Math.random() * 1000) + 500;
     }
 
     saveScripts() {
