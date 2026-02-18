@@ -1,7 +1,7 @@
 // Script Management System with Category Protection
 class AutomationHub {
     constructor() {
-        this.scripts = JSON.parse(localStorage.getItem('scripts')) || this.getDefaultScripts();
+        this.scripts = [];
         this.currentScript = null;
         
         // Category protection keys
@@ -17,49 +17,70 @@ class AutomationHub {
         this.init();
     }
 
-    getDefaultScripts() {
-        return [];
-    }
-
-    async loadDefaultScripts() {
-        const defaultsLoaded = localStorage.getItem('defaultsLoaded');
-        if (defaultsLoaded) return;
-
+    async loadScripts() {
+        // Always try to load from localStorage first (for user uploads/updates)
+        const saved = localStorage.getItem('scripts');
+        if (saved) {
+            this.scripts = JSON.parse(saved);
+        }
+        
+        // Always load defaults from files (ensures new visitors see scripts)
         const defaultConfigs = [
             {
                 id: 'dayshift',
-                file: 'Dayshift.txt',
+                file: 'scripts/Dayshift.txt',
                 name: 'Day Shift Scheduler',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for day shift operations (10:30 AM - 4:00 PM)'
             },
             {
                 id: 'nightshift',
-                file: 'NightShift7.txt',
+                file: 'scripts/NightShift7.txt',
                 name: 'Night Shift Scheduler',
                 category: 'scheduler',
                 description: 'Evening shift automation with multiple queue toggles and break scheduling'
             },
             {
                 id: 'thirdshift',
-                file: 'ThirdShift.txt',
+                file: 'scripts/ThirdShift.txt',
                 name: 'Third Shift Scheduler',
                 category: 'scheduler',
                 description: 'Late night shift covering 4:00 PM - 1:00 AM with extended coverage'
             },
             {
                 id: 'wfh-email',
-                file: 'WFH_Email.txt',
+                file: 'scripts/WFH_Email.txt',
                 name: 'WFH Email Automation',
                 category: 'email',
                 description: 'Outlook email automation with send functionality for work-from-home notifications'
             },
             {
                 id: 'autorefresh',
-                file: 'AutoRefresh.txt',
+                file: 'scripts/AutoRefresh 2.txt',
                 name: 'Auto Page Refresh',
                 category: 'utility',
-                description: 'Automatic page refresh utility with countdown timer and manual trigger'
+                description: 'Automatic page refresh utility with countdown timer and manual trigger with the ability to extend the time by 10 min if needed you will be prompted before'
+            },
+            {
+                id: 'dayshift_ramadan',
+                file: 'scripts/Dayshift_Ramadan.txt',
+                name: 'Day Shift Scheduler',
+                category: 'scheduler',
+                description: 'Automated presence status scheduler for day shift operations for ramadan (10:30 AM - 4:00 PM)'
+            },
+            {
+                id: 'nightshift_ramadan',
+                file: 'scripts/NightShift_Ramadan.txt',
+                name: 'Night Shift Scheduler',
+                category: 'scheduler',
+                description: 'Automated presence status scheduler for night shift operations for ramadan (1:30 PM - 11:00 PM)'
+            },
+            {
+                id: 'thirdshift_Ramadan',
+                file: 'scripts/ThirdShift_Ramadan.txt',
+                name: 'third Shift Scheduler',
+                category: 'scheduler',
+                description: 'Automated presence status scheduler for third shift operations for ramadan (4:00 PM - 1:30 AM)'
             }
         ];
 
@@ -68,8 +89,16 @@ class AutomationHub {
                 const response = await fetch(config.file);
                 if (response.ok) {
                     const content = await response.text();
-                    const exists = this.scripts.find(s => s.id === config.id);
-                    if (!exists) {
+                    
+                    // Check if this script already exists in localStorage (by id)
+                    const existingIndex = this.scripts.findIndex(s => s.id === config.id);
+                    
+                    if (existingIndex >= 0) {
+                        // Update existing with fresh content from file (in case file changed)
+                        this.scripts[existingIndex].content = content;
+                        this.scripts[existingIndex].size = (content.length / 1024).toFixed(1) + ' KB';
+                    } else {
+                        // Add new script
                         this.scripts.push({
                             id: config.id,
                             name: config.name,
@@ -88,12 +117,11 @@ class AutomationHub {
             }
         }
 
-        localStorage.setItem('defaultsLoaded', 'true');
         this.saveScripts();
     }
 
     async init() {
-        await this.loadDefaultScripts();
+        await this.loadScripts();
         this.renderScripts();
         this.updateStats();
         this.setupEventListeners();
@@ -416,26 +444,25 @@ class AutomationHub {
         document.getElementById('uploadForm').style.display = 'block';
     }
 
-async downloadScript(id) {
-    const script = this.scripts.find(s => s.id === id);
-    if (!script) return;
-    
-    // Check if category is locked before downloading
-    if (!this.isCategoryUnlocked(script.category)) {
-        const unlocked = await this.promptForCategoryKey(script.category);
-        if (!unlocked) return; // Don't download if denied
-    }
+    async downloadScript(id) {
+        const script = this.scripts.find(s => s.id === id);
+        if (!script) return;
+        
+        if (!this.isCategoryUnlocked(script.category)) {
+            const unlocked = await this.promptForCategoryKey(script.category);
+            if (!unlocked) return;
+        }
 
-    const blob = new Blob([script.content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = script.filename;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    this.showToast(`Downloaded ${script.filename}`, 'success');
-}
+        const blob = new Blob([script.content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = script.filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        this.showToast(`Downloaded ${script.filename}`, 'success');
+    }
 
     updateStats() {
         document.getElementById('totalScripts').textContent = this.scripts.length;
