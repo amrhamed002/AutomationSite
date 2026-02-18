@@ -18,9 +18,12 @@ class AutomationHub {
     }
 
     async loadScripts() {
+        console.log('🚀 Loading scripts...');
+        
         // Always try to load from localStorage first (for user uploads/updates)
         const saved = localStorage.getItem('scripts');
         if (saved) {
+            console.log('📦 Found saved scripts in localStorage');
             this.scripts = JSON.parse(saved);
         }
         
@@ -56,7 +59,7 @@ class AutomationHub {
             },
             {
                 id: 'autorefresh',
-                file: 'scripts/AutoRefresh 2.txt',
+                file: 'scripts/AutoRefresh.txt',  // ← Fixed: removed space
                 name: 'Auto Page Refresh',
                 category: 'utility',
                 description: 'Automatic page refresh utility with countdown timer and manual trigger with the ability to extend the time by 10 min if needed you will be prompted before'
@@ -64,57 +67,78 @@ class AutomationHub {
             {
                 id: 'dayshift_ramadan',
                 file: 'scripts/Dayshift_Ramadan.txt',
-                name: 'Day Shift Scheduler',
+                name: 'Day Shift Scheduler (Ramadan)',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for day shift operations for ramadan (10:30 AM - 4:00 PM)'
             },
             {
                 id: 'nightshift_ramadan',
                 file: 'scripts/NightShift_Ramadan.txt',
-                name: 'Night Shift Scheduler',
+                name: 'Night Shift Scheduler (Ramadan)',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for night shift operations for ramadan (1:30 PM - 11:00 PM)'
             },
             {
-                id: 'thirdshift_Ramadan',
+                id: 'thirdshift_ramadan',
                 file: 'scripts/ThirdShift_Ramadan.txt',
-                name: 'third Shift Scheduler',
+                name: 'Third Shift Scheduler (Ramadan)',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for third shift operations for ramadan (4:00 PM - 1:30 AM)'
             }
         ];
 
+        let loadedCount = 0;
+        let failedCount = 0;
+
         for (const config of defaultConfigs) {
             try {
+                console.log(`📥 Fetching: ${config.file}`);
                 const response = await fetch(config.file);
-                if (response.ok) {
-                    const content = await response.text();
-                    
-                    // Check if this script already exists in localStorage (by id)
-                    const existingIndex = this.scripts.findIndex(s => s.id === config.id);
-                    
-                    if (existingIndex >= 0) {
-                        // Update existing with fresh content from file (in case file changed)
-                        this.scripts[existingIndex].content = content;
-                        this.scripts[existingIndex].size = (content.length / 1024).toFixed(1) + ' KB';
-                    } else {
-                        // Add new script
-                        this.scripts.push({
-                            id: config.id,
-                            name: config.name,
-                            category: config.category,
-                            description: config.description,
-                            filename: config.file,
-                            content: content,
-                            size: (content.length / 1024).toFixed(1) + ' KB',
-                            updated: new Date().toISOString(),
-                            version: '1.0'
-                        });
-                    }
+                
+                if (!response.ok) {
+                    console.error(`❌ HTTP ${response.status} for ${config.file}`);
+                    failedCount++;
+                    continue;
                 }
+                
+                const content = await response.text();
+                console.log(`✅ Loaded ${config.file} (${content.length} chars)`);
+                
+                // Check if this script already exists in localStorage (by id)
+                const existingIndex = this.scripts.findIndex(s => s.id === config.id);
+                
+                if (existingIndex >= 0) {
+                    // Update existing with fresh content from file (in case file changed)
+                    this.scripts[existingIndex].content = content;
+                    this.scripts[existingIndex].size = (content.length / 1024).toFixed(1) + ' KB';
+                } else {
+                    // Add new script
+                    this.scripts.push({
+                        id: config.id,
+                        name: config.name,
+                        category: config.category,
+                        description: config.description,
+                        filename: config.file,
+                        content: content,
+                        size: (content.length / 1024).toFixed(1) + ' KB',
+                        updated: new Date().toISOString(),
+                        version: '1.0'
+                    });
+                }
+                loadedCount++;
+                
             } catch (e) {
-                console.error('Failed to load:', config.file);
+                console.error(`❌ Failed to load ${config.file}:`, e.message);
+                failedCount++;
             }
+        }
+
+        console.log(`📊 Loaded: ${loadedCount}, Failed: ${failedCount}, Total: ${this.scripts.length}`);
+        
+        // If no scripts loaded at all, show error
+        if (this.scripts.length === 0) {
+            console.error('🚨 CRITICAL: No scripts loaded! Check file paths.');
+            this.showToast('Error: Could not load scripts. Check console.', 'error');
         }
 
         this.saveScripts();
@@ -313,9 +337,24 @@ class AutomationHub {
 
     renderScripts(filter = 'all') {
         const grid = document.getElementById('scriptsGrid');
+        
+        // Debug: log what we're trying to render
+        console.log(`Rendering scripts. Filter: ${filter}, Total: ${this.scripts.length}`);
+        
         const filtered = filter === 'all' ? 
             this.scripts : 
             this.scripts.filter(s => s.category === filter);
+
+        if (filtered.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #94a3b8;">
+                    <i class="fas fa-folder-open" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                    <p>No scripts found.</p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">Check browser console for errors.</p>
+                </div>
+            `;
+            return;
+        }
 
         grid.innerHTML = filtered.map(script => {
             const isLocked = !this.isCategoryUnlocked(script.category);
