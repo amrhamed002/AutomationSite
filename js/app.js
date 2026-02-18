@@ -416,20 +416,26 @@ class AutomationHub {
         document.getElementById('uploadForm').style.display = 'block';
     }
 
-    downloadScript(id) {
-        const script = this.scripts.find(s => s.id === id);
-        if (!script) return;
-
-        const blob = new Blob([script.content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = script.filename;
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        this.showToast(`Downloaded ${script.filename}`, 'success');
+async downloadScript(id) {
+    const script = this.scripts.find(s => s.id === id);
+    if (!script) return;
+    
+    // Check if category is locked before downloading
+    if (!this.isCategoryUnlocked(script.category)) {
+        const unlocked = await this.promptForCategoryKey(script.category);
+        if (!unlocked) return; // Don't download if denied
     }
+
+    const blob = new Blob([script.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = script.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    this.showToast(`Downloaded ${script.filename}`, 'success');
+}
 
     updateStats() {
         document.getElementById('totalScripts').textContent = this.scripts.length;
