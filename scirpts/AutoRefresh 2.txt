@@ -1,0 +1,213 @@
+(() => {
+  'use strict';
+
+  const PERIOD_MIN = 60;                 // <— change if you want
+  const PERIOD_MS = PERIOD_MIN * 60 * 1000;
+  const WARNING_MIN = 1;                 // Show popup when 1 minute left
+  const EXTEND_MIN = 10;                 // Extend by 10 minutes
+  const POPUP_DURATION_MS = 10000;       // Popup auto-dismiss after 10 sec
+
+  /* ---------- create button ---------- */
+  const btn = document.createElement('button');
+  btn.id = 'tm-refresh-btn';
+  btn.title = 'Next auto-refresh in …';
+  Object.assign(btn.style, {
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    zIndex: 99999,
+    padding: '6px 10px',
+    fontSize: '16px',
+    background: '#007bff',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    boxShadow: '0 2px 6px rgba(0,0,0,.3)',
+    minWidth: '70px'
+  });
+
+  /* ---------- popup overlay ---------- */
+  let popup = null;
+  let popupTimeout = null;
+  let keyHandler = null;
+
+  function createPopup() {
+    // Overlay container
+    const overlay = document.createElement('div');
+    overlay.id = 'tm-refresh-popup';
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 100000
+    });
+
+    // Popup box
+    const box = document.createElement('div');
+    Object.assign(box.style, {
+      backgroundColor: '#fff',
+      padding: '30px 40px',
+      borderRadius: '12px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+      textAlign: 'center',
+      maxWidth: '400px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      animation: 'tm-popup-fade-in 0.3s ease-out'
+    });
+
+    // Title
+    const title = document.createElement('h3');
+    title.textContent = '⏰ Refresh Approaching';
+    Object.assign(title.style, {
+      margin: '0 0 15px 0',
+      color: '#dc3545',
+      fontSize: '20px'
+    });
+
+    // Message
+    const msg = document.createElement('p');
+    msg.textContent = 'Page will refresh in 1 minute. Currently writing an email or call log?';
+    Object.assign(msg.style, {
+      margin: '0 0 20px 0',
+      color: '#333',
+      fontSize: '16px',
+      lineHeight: '1.5'
+    });
+
+    // Instructions
+    const instructions = document.createElement('div');
+    instructions.innerHTML = '<strong>Press "Y"</strong> to extend timer by 10 minutes<br><span style="color: #666; font-size: 14px;">(This popup will close automatically in 10 seconds)</span>';
+    Object.assign(instructions.style, {
+      color: '#007bff',
+      fontSize: '16px',
+      lineHeight: '1.6'
+    });
+
+    // Assemble
+    box.appendChild(title);
+    box.appendChild(msg);
+    box.appendChild(instructions);
+    overlay.appendChild(box);
+
+    // Add animation keyframes
+    if (!document.getElementById('tm-popup-styles')) {
+      const style = document.createElement('style');
+      style.id = 'tm-popup-styles';
+      style.textContent = `
+        @keyframes tm-popup-fade-in {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    return overlay;
+  }
+
+  function showPopup() {
+    if (popup) return; // Already showing
+
+    popup = createPopup();
+    document.body.appendChild(popup);
+
+    // Auto-dismiss after 10 seconds
+    popupTimeout = setTimeout(() => {
+      hidePopup();
+    }, POPUP_DURATION_MS);
+
+    // Keyboard handler for "Y"
+    keyHandler = (e) => {
+      if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault();
+        extendTimer();
+        hidePopup();
+      }
+    };
+    document.addEventListener('keydown', keyHandler);
+  }
+
+  function hidePopup() {
+    if (!popup) return;
+    
+    if (popupTimeout) {
+      clearTimeout(popupTimeout);
+      popupTimeout = null;
+    }
+    
+    if (keyHandler) {
+      document.removeEventListener('keydown', keyHandler);
+      keyHandler = null;
+    }
+
+    popup.remove();
+    popup = null;
+  }
+
+  function extendTimer() {
+    target = Date.now() + (EXTEND_MIN * 60 * 1000);
+    updateDisplay();
+    
+    // Visual feedback on button
+    const originalBg = btn.style.background;
+    btn.style.background = '#28a745';
+    btn.textContent = '✓ Extended!';
+    setTimeout(() => {
+      btn.style.background = originalBg;
+      updateDisplay();
+    }, 2000);
+  }
+
+  /* ---------- timer logic ---------- */
+  let target = Date.now() + PERIOD_MS;
+  let tickId;
+  let warningShown = false;
+
+  const pad = n => String(n).padStart(2, '0');
+  function updateDisplay() {
+    const left = Math.max(0, target - Date.now());
+    const m = Math.floor(left / 60000);
+    const s = Math.floor((left % 60000) / 1000);
+    btn.textContent = `⟳ ${pad(m)}:${pad(s)}`;
+
+    // Show popup at 1 minute remaining (but only once per cycle)
+    if (m === WARNING_MIN && s === 0 && !warningShown) {
+      warningShown = true;
+      showPopup();
+    }
+
+    // Reset warning flag if timer was extended past the threshold
+    if (m > WARNING_MIN) {
+      warningShown = false;
+    }
+
+    if (left <= 0) location.reload(true);
+  }
+
+  function start() {
+    updateDisplay();
+    tickId = setInterval(updateDisplay, 1000);
+  }
+
+  /* ---------- manual refresh ---------- */
+  btn.addEventListener('click', () => location.reload(true));
+
+  /* ---------- cleanup on page unload ---------- */
+  window.addEventListener('beforeunload', () => {
+    hidePopup();
+    clearInterval(tickId);
+  });
+
+  /* ---------- inject & start ---------- */
+  if (!document.getElementById('tm-refresh-btn')) {
+    document.body.appendChild(btn);
+    start();
+  }
+})();

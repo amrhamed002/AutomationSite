@@ -1,0 +1,846 @@
+/* ===== ENHANCED SCHEDULER WITH DROPDOWN MENU ===== */
+const fallbackToggle = '#toggleUserDropdownTarget';
+
+// Available status options - with proper text matching
+const STATUS_OPTIONS = [
+  { text: 'Available', color: '#4CAF50' },
+  { text: 'Training', color: '#FF9800' },
+  { text: 'Break', color: '#2196F3' },
+  { text: 'Away', color: '#FFC107' },
+  { text: 'Busy', color: '#F44336' },
+  { text: 'Do not disturb', color: '#9C27B0' }
+];
+
+// All status options - customize these times as needed
+const jobs = [
+  { 
+    time: '13:30:00', 
+    statusText: 'Training', 
+    label: 'TRAINING_1330',
+    id: 'training_1330' // Unique ID for each job
+  },
+  { 
+    time: '14:30:00', 
+    statusText: 'Available', 
+    label: 'AVAILABLE_1430',
+    id: 'available_1430'
+  },
+  { 
+    time: '16:00:40', 
+    selector: '#command-bar-queue-toggle', 
+    label: 'ON_QUEUE_1600',
+    useShadow: true,
+    id: 'queue_1600'
+  },
+  { 
+    time: '18:00:00', 
+    statusText: 'Available', 
+    label: 'AVAILABLE_1800',
+    id: 'available_1800'
+  },
+  { 
+    time: '18:30:00', 
+    statusText: 'Break', 
+    label: 'BREAK_1830',
+    id: 'break_1830'
+  },
+  { 
+    time: '19:00:00', 
+    statusText: 'Available', 
+    label: 'AVAILABLE_1900',
+    id: 'available_1900'
+  },
+  { 
+    time: '20:00:40', 
+    selector: '#command-bar-queue-toggle', 
+    label: 'ON_QUEUE_2000',
+    useShadow: true,
+    id: 'queue_2000'
+  },
+  { 
+    time: '22:00:00', 
+    statusText: 'Available', 
+    label: 'AVAILABLE_2200',
+    id: 'available_2200'
+  }
+];
+
+// Store timeouts
+const timeouts = new Map();
+
+/* ===== GENERATE UNIQUE ID ===== */
+function generateJobId(status, time) {
+  // Remove colons from time and create unique ID
+  const timePart = time.replace(/:/g, '');
+  const statusPart = status.replace(/\s+/g, '_').toLowerCase();
+  return `${statusPart}_${timePart}`;
+}
+
+/* ===== IMPROVED ELEMENT FINDER (Case-Insensitive) ===== */
+function findStatusButton(statusText) {
+  console.log(`🔍 Looking for "${statusText}"...`);
+  
+  // Convert to lowercase for case-insensitive comparison
+  const searchText = statusText.toLowerCase();
+  
+  // First, try to find in dropdown if it's open
+  const dropdown = document.querySelector('[role="menu"], [class*="dropdown"][style*="visible"], [class*="menu"][style*="block"]');
+  
+  if (dropdown) {
+    console.log('Dropdown is open, searching inside...');
+    const buttons = dropdown.querySelectorAll('button');
+    for (const button of buttons) {
+      if (button.textContent.toLowerCase().includes(searchText)) {
+        console.log(`✅ Found "${statusText}" in open dropdown`);
+        return button;
+      }
+    }
+  }
+  
+  // Search all elements for text (case-insensitive)
+  const allElements = document.querySelectorAll('*');
+  for (const el of allElements) {
+    if (el.textContent && el.textContent.trim().toLowerCase() === searchText) {
+      const button = el.closest('button');
+      if (button) {
+        console.log(`✅ Found "${statusText}" button by text`);
+        return button;
+      }
+    }
+  }
+  
+  // Search presence buttons (case-insensitive)
+  const presenceButtons = document.querySelectorAll('button[class*="presence"], .presence-entry, [role="radio"]');
+  for (const button of presenceButtons) {
+    if (button.textContent.toLowerCase().includes(searchText)) {
+      console.log(`✅ Found "${statusText}" in presence button`);
+      return button;
+    }
+  }
+  
+  console.log(`❌ "${statusText}" button not found`);
+  return null;
+}
+
+/* ===== SAFE CLICK FUNCTION WITH TIME LIMIT ===== */
+async function clickStatus(job) {
+  console.log(`🎯 Starting ${job.label}...`);
+  
+  // Handle shadow DOM toggle (special case for queue)
+  if (job.useShadow) {
+    console.log('🔄 Handling queue toggle (shadow DOM)');
+    const host = document.querySelector(job.selector);
+    if (host) {
+      const toggle = host.shadowRoot?.querySelector('div > div > gux-toggle-slider > div > div');
+      if (toggle) {
+        toggle.click();
+        console.log(`✅ ${job.label} toggled`);
+        showNotification(`Queue toggled`);
+        return true;
+      }
+    }
+    console.error(`❌ ${job.label} toggle not found`);
+    showNotification('Queue toggle not found', true);
+    return false;
+  }
+  
+  // For regular status buttons, ALWAYS open dropdown first
+  console.log('📂 Opening dropdown first...');
+  const toggle = document.querySelector(fallbackToggle);
+  
+  if (!toggle) {
+    console.error('❌ Dropdown toggle not found');
+    showNotification(`Cannot open menu`, true);
+    return false;
+  }
+  
+  return new Promise((resolve) => {
+    let clickTimeout;
+    
+    // Set overall timeout to prevent infinite trying (30 seconds max)
+    const overallTimeout = setTimeout(() => {
+      console.error(`⏰ Timeout: Could not complete ${job.label} within 30 seconds`);
+      showNotification(`${job.statusText} timeout`, true);
+      resolve(false);
+      
+      // Close dropdown if still open
+      if (toggle.offsetParent !== null) {
+        toggle.click();
+      }
+    }, 30000);
+    
+    // Step 1: Click to open dropdown
+    toggle.click();
+    console.log('✅ Dropdown opened, waiting for it to load...');
+    
+    // Step 2: Wait for dropdown to fully open
+    setTimeout(async () => {
+      console.log(`🔍 Looking for "${job.statusText}" in dropdown...`);
+      
+      // Step 3: Find the button in the dropdown (with case-insensitive search)
+      let target = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      while (!target && attempts < maxAttempts) {
+        target = findStatusButton(job.statusText);
+        
+        if (!target) {
+          console.log(`Attempt ${attempts + 1}/${maxAttempts}: Button not found yet, waiting...`);
+          await wait(500);
+          attempts++;
+        }
+      }
+      
+      // Clear overall timeout since we found/didn't find the button
+      clearTimeout(overallTimeout);
+      
+      if (target) {
+        console.log(`✅ Found "${job.statusText}", clicking...`);
+        
+        // Step 4: Click the button
+        try {
+          target.click();
+          console.log(`✅ ${job.label} clicked successfully`);
+          showNotification(`Set to ${job.statusText}`);
+          
+          // Step 5: Close dropdown after successful click
+          setTimeout(() => {
+            if (toggle.offsetParent !== null) {
+              toggle.click();
+              console.log('✅ Dropdown closed');
+            }
+            resolve(true);
+          }, 1000);
+          
+        } catch (error) {
+          console.error(`❌ Click error:`, error);
+          showNotification(`${job.statusText} failed`, true);
+          resolve(false);
+        }
+      } else {
+        console.error(`❌ "${job.statusText}" not found after ${maxAttempts} attempts`);
+        showNotification(`${job.statusText} not found in menu`, true);
+        
+        // Close dropdown if still open
+        setTimeout(() => {
+          if (toggle.offsetParent !== null) {
+            toggle.click();
+          }
+          resolve(false);
+        }, 1000);
+      }
+    }, 1500);
+  });
+}
+
+// Helper function for waiting
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/* ===== NOTIFICATION ===== */
+function showNotification(text, isError = false) {
+  // Remove existing
+  document.querySelectorAll('.presence-notif').forEach(el => el.remove());
+  
+  const notif = document.createElement('div');
+  notif.className = 'presence-notif';
+  Object.assign(notif.style, {
+    position: 'fixed',
+    top: '10px',
+    right: '10px',
+    background: isError ? '#ff4444' : '#00c851',
+    color: 'white',
+    padding: '12px 18px',
+    borderRadius: '6px',
+    zIndex: '100000',
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '15px',
+    fontWeight: 'bold',
+    boxShadow: '0 3px 15px rgba(0,0,0,0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px'
+  });
+  
+  notif.innerHTML = `
+    <span style="font-size: 18px;">${isError ? '❌' : '✅'}</span>
+    <span>${text}</span>
+  `;
+  
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 3500);
+}
+
+/* ===== SCHEDULER ===== */
+function scheduleJob(job) {
+  // Cancel existing timeout if any
+  if (timeouts.has(job.id)) {
+    clearTimeout(timeouts.get(job.id));
+  }
+  
+  const [h, m, s] = job.time.split(':').map(Number);
+  const now = new Date();
+  const targetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, s);
+  
+  let ms = targetTime - now;
+  if (ms < 0) {
+    targetTime.setDate(targetTime.getDate() + 1);
+    ms = targetTime - now;
+  }
+  
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  
+  console.log(`⏰ ${job.label} at ${job.time} (in ${hours}h ${minutes}m)`);
+  
+  const timeoutId = setTimeout(async () => {
+    console.log(`\n🚀 ${job.label} EXECUTING at ${new Date().toLocaleTimeString()}`);
+    const success = await clickStatus(job);
+    console.log(`${job.label} ${success ? 'completed successfully' : 'failed'}`);
+    timeouts.delete(job.id);
+  }, ms);
+  
+  timeouts.set(job.id, timeoutId);
+  job.timeoutId = timeoutId;
+}
+
+/* ===== ENHANCED CONTROL PANEL WITH DROPDOWN ===== */
+function createControlPanel() {
+  // Remove existing
+  const existing = document.getElementById('presence-panel');
+  if (existing) existing.remove();
+  
+  const panel = document.createElement('div');
+  panel.id = 'presence-panel';
+  Object.assign(panel.style, {
+    position: 'fixed',
+    bottom: '80px',
+    left: '20px',
+    background: 'white',
+    border: '2px solid #00c851',
+    borderRadius: '10px',
+    padding: '20px',
+    zIndex: '99999',
+    boxShadow: '0 5px 25px rgba(0,0,0,0.2)',
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '14px',
+    width: '340px',
+    maxHeight: '500px',
+    overflowY: 'auto',
+    display: 'none'
+  });
+  
+  // Build dropdown options HTML
+  const statusOptionsHTML = STATUS_OPTIONS.map(status => 
+    `<option value="${status.text}">${status.text}</option>`
+  ).join('');
+  
+  // Build content
+  let content = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <div style="font-weight: bold; color: #00c851; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 22px;">⏰</span>
+        <span>Presence Scheduler</span>
+      </div>
+      <button id="close-panel" style="
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        &:hover { background: #f0f0f0; }
+      ">×</button>
+    </div>
+    
+    <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #b3e5fc;">
+      <div style="font-weight: bold; margin-bottom: 10px; color: #0277bd; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">➕</span>
+        <span>Add New Schedule</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+        <div>
+          <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Time</div>
+          <input type="time" id="new-time" style="
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+          " value="${new Date(Date.now() + 3600000).toTimeString().substring(0,5)}">
+        </div>
+        <div>
+          <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Status</div>
+          <select id="new-status" style="
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+          ">
+            <option value="">Select status...</option>
+            ${statusOptionsHTML}
+            <option value="ON_QUEUE">Queue Toggle</option>
+          </select>
+        </div>
+      </div>
+      <button id="add-btn" style="
+        width: 100%;
+        padding: 10px;
+        background: #00c851;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        &:hover { background: #00b849; }
+      ">➕ Add Schedule</button>
+      <div style="font-size: 11px; color: #666; margin-top: 8px; text-align: center;">
+        You can add multiple schedules for the same status
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 10px; font-weight: bold; color: #555; font-size: 15px;">
+      Scheduled Jobs (${jobs.length})
+    </div>
+    
+    <div id="jobs-list" style="margin-bottom: 20px; max-height: 250px; overflow-y: auto;">
+  `;
+  
+  // Add job list
+  if (jobs.length === 0) {
+    content += `
+      <div style="text-align: center; padding: 30px; color: #999;">
+        <div style="font-size: 48px; margin-bottom: 10px;">⏰</div>
+        <div>No jobs scheduled yet</div>
+        <div style="font-size: 12px; margin-top: 5px;">Add your first schedule above</div>
+      </div>
+    `;
+  } else {
+    // Sort jobs by time
+    const sortedJobs = [...jobs].sort((a, b) => a.time.localeCompare(b.time));
+    
+    sortedJobs.forEach((job, index) => {
+      const [h, m] = job.time.split(':').map(Number);
+      const now = new Date();
+      let targetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+      if (targetTime < now) targetTime.setDate(targetTime.getDate() + 1);
+      const msUntil = targetTime - now;
+      const hoursUntil = Math.floor(msUntil / 3600000);
+      const minutesUntil = Math.floor((msUntil % 3600000) / 60000);
+      
+      // Get color for this status
+      const statusInfo = STATUS_OPTIONS.find(s => s.text === job.statusText) || 
+                        { text: job.label, color: '#9C27B0' };
+      
+      content += `
+        <div style="
+          padding: 12px;
+          margin-bottom: 10px;
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          background: ${index % 2 === 0 ? '#f9f9f9' : '#fff'};
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        ">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background: ${statusInfo.color};
+            "></div>
+            <div>
+              <div style="font-weight: bold; color: #333; margin-bottom: 4px;">
+                ${job.statusText || job.label}
+                <span style="font-weight: normal; color: #666; font-size: 12px; margin-left: 5px;">
+                  #${job.id.substring(job.id.length - 4)}
+                </span>
+              </div>
+              <div style="font-size: 12px; color: #666;">
+                ⏰ ${job.time} • in ${hoursUntil}h ${minutesUntil}m
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="test-btn" data-id="${job.id}" style="
+              padding: 6px 12px;
+              background: ${statusInfo.color};
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 12px;
+              font-weight: bold;
+              &:hover { opacity: 0.9; }
+            ">Test</button>
+            <button class="remove-btn" data-id="${job.id}" style="
+              padding: 6px 10px;
+              background: #f44336;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 12px;
+              &:hover { background: #d32f2f; }
+            ">×</button>
+          </div>
+        </div>
+      `;
+    });
+  }
+  
+  content += `</div>`;
+  
+  // Add quick test buttons for all available statuses
+  content += `
+    <div style="border-top: 1px solid #eee; padding-top: 15px;">
+      <div style="font-size: 13px; color: #777; margin-bottom: 10px;">
+        Quick Test:
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+  `;
+  
+  // Add test button for each status option
+  STATUS_OPTIONS.forEach(status => {
+    content += `
+      <button class="quick-test" data-status="${status.text}" style="
+        padding: 8px 14px;
+        background: ${status.color};
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+        &:hover { opacity: 0.9; }
+      ">${status.text}</button>
+    `;
+  });
+  
+  // Add queue toggle button
+  content += `
+        <button class="quick-test" data-status="ON_QUEUE" style="
+          padding: 8px 14px;
+          background: #9C27B0;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: bold;
+          &:hover { background: #7b1fa2; }
+        ">Queue Toggle</button>
+      </div>
+    </div>
+  `;
+  
+  panel.innerHTML = content;
+  document.body.appendChild(panel);
+  
+  // Add event listeners
+  setTimeout(() => {
+    // Close button
+    const closeBtn = document.getElementById('close-panel');
+    if (closeBtn) closeBtn.onclick = () => panel.style.display = 'none';
+    
+    // Add button
+    const addBtn = document.getElementById('add-btn');
+    if (addBtn) addBtn.onclick = addNewJobWithDropdown;
+    
+    // Quick test buttons
+    document.querySelectorAll('.quick-test').forEach(btn => {
+      btn.onclick = (e) => {
+        const status = e.target.dataset.status;
+        testStatus(status);
+      };
+    });
+    
+    // Test buttons for each job
+    document.querySelectorAll('.test-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        const jobId = e.target.dataset.id;
+        const job = jobs.find(j => j.id === jobId);
+        if (job) {
+          showNotification(`Testing ${job.statusText || job.label}...`);
+          clickStatus(job);
+        }
+      };
+    });
+    
+    // Remove buttons
+    document.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        const jobId = e.target.dataset.id;
+        const jobIndex = jobs.findIndex(j => j.id === jobId);
+        if (jobIndex >= 0) {
+          if (confirm(`Remove ${jobs[jobIndex].statusText || jobs[jobIndex].label} at ${jobs[jobIndex].time}?`)) {
+            removeJob(jobId);
+          }
+        }
+      };
+    });
+  }, 100);
+  
+  return panel;
+}
+
+function addNewJobWithDropdown() {
+  const timeInput = document.getElementById('new-time');
+  const statusSelect = document.getElementById('new-status');
+  
+  if (!timeInput || !statusSelect) return;
+  
+  const time = timeInput.value;
+  const selectedStatus = statusSelect.value;
+  
+  if (!time || !selectedStatus) {
+    showNotification('Please select both time and status', true);
+    return;
+  }
+  
+  // Generate unique ID for this job
+  const jobId = generateJobId(selectedStatus, time);
+  
+  // Create new job object
+  let newJob;
+  if (selectedStatus === 'ON_QUEUE') {
+    newJob = {
+      time: time + ':00',
+      selector: '#command-bar-queue-toggle',
+      label: `ON_QUEUE_${time.replace(/:/g, '')}`,
+      useShadow: true,
+      id: jobId
+    };
+  } else {
+    newJob = {
+      time: time + ':00',
+      statusText: selectedStatus,
+      label: `${selectedStatus.toUpperCase().replace(/\s+/g, '_')}_${time.replace(/:/g, '')}`,
+      id: jobId
+    };
+  }
+  
+  jobs.push(newJob);
+  scheduleJob(newJob);
+  
+  // Refresh panel
+  createControlPanel();
+  const panel = document.getElementById('presence-panel');
+  panel.style.display = 'block';
+  
+  updateIndicator();
+  showNotification(`✅ Added ${selectedStatus} at ${time}`);
+  
+  // Reset form
+  timeInput.value = new Date(Date.now() + 3600000).toTimeString().substring(0,5);
+  statusSelect.value = '';
+}
+
+function testStatus(status) {
+  let job;
+  
+  if (status === 'ON_QUEUE') {
+    // Create a temporary queue job for testing
+    job = {
+      selector: '#command-bar-queue-toggle',
+      label: 'ON_QUEUE_TEST',
+      useShadow: true,
+      id: 'queue_test_' + Date.now()
+    };
+  } else {
+    // Create a temporary status job for testing
+    job = {
+      statusText: status,
+      label: `${status.toUpperCase().replace(/\s+/g, '_')}_TEST`,
+      id: 'test_' + Date.now()
+    };
+  }
+  
+  showNotification(`Testing ${status}...`);
+  clickStatus(job);
+}
+
+function removeJob(jobId) {
+  const jobIndex = jobs.findIndex(j => j.id === jobId);
+  if (jobIndex >= 0) {
+    const job = jobs[jobIndex];
+    
+    // Cancel timeout if exists
+    if (timeouts.has(job.id)) {
+      clearTimeout(timeouts.get(job.id));
+      timeouts.delete(job.id);
+    }
+    
+    jobs.splice(jobIndex, 1);
+    
+    // Refresh panel
+    createControlPanel();
+    const panel = document.getElementById('presence-panel');
+    if (panel) panel.style.display = 'block';
+    
+    updateIndicator();
+    showNotification(`❌ Removed ${job.statusText || job.label}`);
+  }
+}
+
+/* ===== INDICATOR ===== */
+function createIndicator() {
+  const existing = document.getElementById('presence-indicator');
+  if (existing) existing.remove();
+  
+  const indicator = document.createElement('div');
+  indicator.id = 'presence-indicator';
+  Object.assign(indicator.style, {
+    position: 'fixed',
+    bottom: '20px',
+    left: '20px',
+    background: '#00c851',
+    color: 'white',
+    padding: '12px 20px',
+    borderRadius: '25px',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    fontFamily: 'Arial, sans-serif',
+    zIndex: '99998',
+    cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(0,200,81,0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    transition: 'all 0.2s ease'
+  });
+  
+  updateIndicator();
+  
+  indicator.onmouseenter = () => {
+    indicator.style.transform = 'scale(1.05)';
+    indicator.style.boxShadow = '0 6px 20px rgba(0,200,81,0.4)';
+  };
+  
+  indicator.onmouseleave = () => {
+    indicator.style.transform = 'scale(1)';
+    indicator.style.boxShadow = '0 4px 15px rgba(0,200,81,0.3)';
+  };
+  
+  indicator.onclick = () => {
+    const panel = document.getElementById('presence-panel');
+    if (panel) {
+      panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+  };
+  
+  document.body.appendChild(indicator);
+  return indicator;
+}
+
+function updateIndicator() {
+  const indicator = document.getElementById('presence-indicator');
+  if (!indicator) return;
+  
+  // Count unique statuses for display
+  const uniqueStatuses = [...new Set(jobs.filter(j => j.statusText).map(j => j.statusText))];
+  
+  indicator.innerHTML = `
+    <span style="font-size: 20px;">⏰</span>
+    <span>${jobs.length} schedule${jobs.length !== 1 ? 's' : ''} • ${uniqueStatuses.length} status${uniqueStatuses.length !== 1 ? 'es' : ''}</span>
+  `;
+}
+
+/* ===== INITIALIZE ===== */
+async function initScheduler() {
+  console.log('✅ Enhanced Presence Scheduler Initialized');
+  console.log('📋 Available statuses:', STATUS_OPTIONS.map(s => s.text).join(', '));
+  console.log('📋 Scheduled jobs:', jobs.length);
+  
+  // Schedule all jobs
+  jobs.forEach(scheduleJob);
+  
+  // Create UI
+  createIndicator();
+  createControlPanel();
+  
+  // Update indicator every minute
+  setInterval(updateIndicator, 60000);
+  
+  // Hide panel when clicking outside
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('presence-panel');
+    const indicator = document.getElementById('presence-indicator');
+    
+    if (panel && panel.style.display === 'block' && 
+        indicator && !panel.contains(e.target) && !indicator.contains(e.target)) {
+      panel.style.display = 'none';
+    }
+  });
+  
+  // Expose to console
+  window.presence = {
+    jobs,
+    STATUS_OPTIONS,
+    test: async (status) => {
+      testStatus(status);
+    },
+    add: (time, status) => {
+      // Validate status
+      const validStatus = STATUS_OPTIONS.find(s => s.text.toLowerCase() === status.toLowerCase())?.text || 
+                         (status === 'ON_QUEUE' ? 'ON_QUEUE' : null);
+      
+      if (!validStatus) {
+        console.log('Invalid status. Available:', STATUS_OPTIONS.map(s => s.text).join(', '), 'or ON_QUEUE');
+        return;
+      }
+      
+      const jobId = generateJobId(validStatus, time);
+      
+      const newJob = validStatus === 'ON_QUEUE' ? {
+        time: time.includes(':') ? time : time + ':00',
+        selector: '#command-bar-queue-toggle',
+        label: `ON_QUEUE_${time.replace(/:/g, '')}`,
+        useShadow: true,
+        id: jobId
+      } : {
+        time: time.includes(':') ? time : time + ':00',
+        statusText: validStatus,
+        label: `${validStatus.toUpperCase().replace(/\s+/g, '_')}_${time.replace(/:/g, '')}`,
+        id: jobId
+      };
+      
+      jobs.push(newJob);
+      scheduleJob(newJob);
+      createControlPanel();
+      updateIndicator();
+      showNotification(`✅ Added ${validStatus} at ${time}`);
+    },
+    show: () => {
+      const panel = document.getElementById('presence-panel');
+      if (panel) panel.style.display = 'block';
+    }
+  };
+  
+  console.log('💡 Console commands:');
+  console.log('- presence.test("Available")');
+  console.log('- presence.add("14:30", "Away")');
+  console.log('- presence.show()');
+  console.log('🎯 Click the green indicator at bottom-left to open control panel');
+}
+
+/* ===== START ===== */
+// Wait for page to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initScheduler);
+} else {
+  setTimeout(initScheduler, 500);
+
+}
