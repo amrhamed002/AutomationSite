@@ -31,56 +31,56 @@ class AutomationHub {
         const defaultConfigs = [
             {
                 id: 'dayshift',
-                file: 'scripts/Dayshift.txt',
+                file: 'scirpts/Dayshift.txt',
                 name: 'Day Shift Scheduler',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for day shift operations (10:30 AM - 4:00 PM)'
             },
             {
                 id: 'nightshift',
-                file: 'scripts/NightShift7.txt',
+                file: 'scirpts/NightShift7.txt',
                 name: 'Night Shift Scheduler',
                 category: 'scheduler',
                 description: 'Evening shift automation with multiple queue toggles and break scheduling'
             },
             {
                 id: 'thirdshift',
-                file: 'scripts/ThirdShift.txt',
+                file: 'scirpts/ThirdShift.txt',
                 name: 'Third Shift Scheduler',
                 category: 'scheduler',
                 description: 'Late night shift covering 4:00 PM - 1:00 AM with extended coverage'
             },
             {
                 id: 'wfh-email',
-                file: 'scripts/WFH_Email.txt',
+                file: 'scirpts/WFH_Email.txt',
                 name: 'WFH Email Automation',
                 category: 'email',
                 description: 'Outlook email automation with send functionality for work-from-home notifications'
             },
             {
                 id: 'autorefresh',
-                file: 'scripts/AutoRefresh.txt',  // ← Fixed: removed space
+                file: 'scirpts/AutoRefresh 2.txt',  // ← Fixed: removed space
                 name: 'Auto Page Refresh',
                 category: 'utility',
                 description: 'Automatic page refresh utility with countdown timer and manual trigger with the ability to extend the time by 10 min if needed you will be prompted before'
             },
             {
                 id: 'dayshift_ramadan',
-                file: 'scripts/Dayshift_Ramadan.txt',
+                file: 'scirpts/Dayshift_Ramadan.txt',
                 name: 'Day Shift Scheduler (Ramadan)',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for day shift operations for ramadan (10:30 AM - 4:00 PM)'
             },
             {
                 id: 'nightshift_ramadan',
-                file: 'scripts/NightShift_Ramadan.txt',
+                file: 'scirpts/NightShift_Ramadan.txt',
                 name: 'Night Shift Scheduler (Ramadan)',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for night shift operations for ramadan (1:30 PM - 11:00 PM)'
             },
             {
                 id: 'thirdshift_ramadan',
-                file: 'scripts/ThirdShift_Ramadan.txt',
+                file: 'scirpts/ThirdShift_Ramadan.txt',
                 name: 'Third Shift Scheduler (Ramadan)',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for third shift operations for ramadan (4:00 PM - 1:30 AM)'
