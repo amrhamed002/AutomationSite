@@ -6,9 +6,9 @@ class AutomationHub {
         
         // Category protection keys
         this.categoryKeys = {
-            'scheduler': 'SCHED2024!',
-            'utility': 'UTIL2024!',
-            'email': 'EMAIL2024!'
+            'scheduler': 'Sch3dul3r$2020!XyZ#',
+            'utility': 'Ut1l1ty&P0w3r@99$QW',
+            'email': 'Em41l$3cur3!Key#2000'
         };
         
         // Track unlocked categories in session
