@@ -14,48 +14,48 @@ const STATUS_OPTIONS = [
 // All status options - customize these times as needed
 const jobs = [
   { 
-    time: '13:30:00', 
+    time: '12:30:00', 
     statusText: 'Training', 
-    label: 'TRAINING_1330',
-    id: 'training_1330' // Unique ID for each job
+    label: 'TRAINING_1230',
+    id: 'training_1230' // Unique ID for each job
   },
   { 
-    time: '14:30:00', 
+    time: '13:30:00', 
     statusText: 'Available', 
-    label: 'AVAILABLE_1430',
-    id: 'available_1430'
+    label: 'AVAILABLE_1330',
+    id: 'available_1330'
   },
   { 
-    time: '17:02:00', 
+    time: '16:02:00', 
     selector: '#command-bar-queue-toggle', 
-    label: 'ON_QUEUE_1802',
+    label: 'ON_QUEUE_1602',
     useShadow: true,
-    id: 'queue_1802'
+    id: 'queue_1602'
   },
   { 
-    time: '19:00:00', 
+    time: '18:00:00', 
     statusText: 'Break', 
-    label: 'BREAK_1900',
-    id: 'break_1900'
+    label: 'BREAK_1800',
+    id: 'break_1800'
   },
   { 
-    time: '19:30:00', 
+    time: '18:30:00', 
     statusText: 'Available', 
-    label: 'AVAILABLE_1930',
-    id: 'available_1930'
+    label: 'AVAILABLE_1830',
+    id: 'available_1830'
   },
   { 
-    time: '20:01:00', 
+    time: '19:01:00', 
     selector: '#command-bar-queue-toggle', 
-    label: 'ON_QUEUE_2001',
+    label: 'ON_QUEUE_1901',
     useShadow: true,
-    id: 'queue_2001'
+    id: 'queue_1901'
   },
   { 
-    time: '22:00:00', 
+    time: '21:00:00', 
     statusText: 'Available', 
-    label: 'AVAILABLE_2200',
-    id: 'available_2200'
+    label: 'AVAILABLE_2100',
+    id: 'available_2100'
   }
 ];
 
