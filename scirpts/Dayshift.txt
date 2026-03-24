@@ -14,19 +14,19 @@ const STATUS_OPTIONS = [
 // All status options - customize these times as needed
 const jobs = [
   { 
-    time: '11:00:00', 
+    time: '10:00:00', 
     statusText: 'Training', 
     label: 'TRAINING_1100',
     id: 'training_1100' // Unique ID for each job
   },
   { 
-    time: '12:00:00', 
+    time: '11:00:00', 
     statusText: 'Available', 
     label: 'AVAILABLE_1200',
     id: 'available_1200'
   },
   { 
-    time: '16:00:00', 
+    time: '13:00:00', 
     selector: '#command-bar-queue-toggle', 
     label: 'ON_QUEUE_1600',
     useShadow: true,
