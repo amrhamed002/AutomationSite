@@ -34,7 +34,7 @@ class AutomationHub {
                 file: 'scirpts/Dayshift.txt',
                 name: 'Day Shift Scheduler',
                 category: 'scheduler',
-                description: 'Automated presence status scheduler for day shift operations (10:30 AM - 4:00 PM)'
+                description: 'Automated presence status scheduler for day shift operations (10:30 AM - 7:00 PM)'
             },
             {
                 id: 'nightshift',
@@ -69,7 +69,7 @@ class AutomationHub {
                 file: 'scirpts/Dayshift_Ramadan.txt',
                 name: 'Day Shift Scheduler (Ramadan)',
                 category: 'scheduler',
-                description: 'Automated presence status scheduler for day shift operations for ramadan (10:30 AM - 4:00 PM)'
+                description: 'Automated presence status scheduler for day shift operations for ramadan (10:30 AM - 7:00 PM)'
             },
             {
                 id: 'nightshift_ramadan',
@@ -84,6 +84,20 @@ class AutomationHub {
                 name: 'Third Shift Scheduler (Ramadan)',
                 category: 'scheduler',
                 description: 'Automated presence status scheduler for third shift operations for ramadan (4:00 PM - 1:30 AM)'
+            },
+            {
+                id: 'dayshift',
+                file: 'scirpts/Teir2 schedule Day.txt',
+                name: 'Day Shift Scheduler tier2',
+                category: 'scheduler',
+                description: 'Automated presence status scheduler for tier2 day shift operations (10:30 AM - 7:00 PM)'
+            },
+            {
+                id: 'nightshift',
+                file: 'scirpts/Teir2 schedule night.txt',
+                name: 'Night Shift Scheduler Tier2',
+                category: 'scheduler',
+                description: 'Automated presence status scheduler for day shift operations (10:30 AM - 4:00 PM)'
             }
         ];
 
