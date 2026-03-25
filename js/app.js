@@ -6,7 +6,7 @@ class AutomationHub {
         
         // Category protection keys
         this.categoryKeys = {
-            'scheduler': 'Sch3dul3r$2020!XyZ#',
+            'scheduler': 'Sch3dul3r$2020!XyZ#@',
             'utility': 'Ut1l1ty&P0w3r@99$QW',
             'email': 'Em41l$3cur3!Key#2000'
         };
