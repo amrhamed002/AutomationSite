@@ -14,61 +14,61 @@ const STATUS_OPTIONS = [
 // All status options - customize these times as needed
 const jobs = [
   { 
-    time: '16:00:00', 
+    time: '15:00:00', 
     statusText: 'Training', 
-    label: 'TRAINING_1600',
-    id: 'training_1600' // Unique ID for each job
+    label: 'TRAINING_1500',
+    id: 'training_1500' // Unique ID for each job
   },
   { 
-    time: '17:00:00', 
+    time: '16:00:00', 
     statusText: 'Available', 
-    label: 'AVAILABLE_1700',
-    id: 'available_1700'
+    label: 'AVAILABLE_1600',
+    id: 'available_1600'
   },
   { 
-    time: '19:02:00', 
+    time: '18:02:00', 
     selector: '#command-bar-queue-toggle', 
-    label: 'ON_QUEUE_1902',
+    label: 'ON_QUEUE_1802',
     useShadow: true,
-    id: 'queue_1902'
+    id: 'queue_1802'
   },
   { 
-    time: '20:00:00', 
+    time: '19:00:00', 
     statusText: 'Available', 
-    label: 'AVAILABLE_2000',
-    id: 'available_2000'
+    label: 'AVAILABLE_1900',
+    id: 'available_1900'
   },
   { 
-    time: '21:01:00', 
+    time: '20:01:00', 
     selector: '#command-bar-queue-toggle', 
-    label: 'ON_QUEUE_2101',
+    label: 'ON_QUEUE_2001',
     useShadow: true,
-    id: 'queue_2101'
+    id: 'queue_2001'
   },
   { 
-    time: '22:00:00', 
+    time: '21:00:00', 
     statusText: 'Break', 
-    label: 'BREAK_2200',
-    id: 'break_2200'
+    label: 'BREAK_2100',
+    id: 'break_2100'
   },
   { 
-    time: '22:30:00', 
+    time: '21:30:00', 
     statusText: 'Available', 
-    label: 'AVAILABLE_2230',
-    id: 'available_2230'
+    label: 'AVAILABLE_2130',
+    id: 'available_2130'
   },
   { 
-    time: '23:01:00', 
+    time: '22:01:00', 
     selector: '#command-bar-queue-toggle', 
-    label: 'ON_QUEUE_2301',
+    label: 'ON_QUEUE_2201',
     useShadow: true,
-    id: 'queue_2301'
+    id: 'queue_2201'
   },
   { 
-    time: '01:00:00', 
+    time: '00:00:00', 
     statusText: 'Available', 
-    label: 'AVAILABLE_0100',
-    id: 'available_0100'
+    label: 'AVAILABLE_0000',
+    id: 'available_0000'
   }
 ];
 
